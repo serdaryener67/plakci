@@ -130,6 +130,50 @@
     padding-right:env(safe-area-inset-right)}
   body.land .sheet.on{transform:none}
 
+
+  /* ---- Ses paneli ---- */
+  #volPop{position:fixed;left:50%;bottom:calc(262px + env(safe-area-inset-bottom));z-index:12;width:min(320px,88vw);
+    transform:translate(-50%,14px) scale(.96);opacity:0;pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1);
+    background:radial-gradient(120% 90% at 50% 0%,rgba(36,29,25,.96),rgba(16,13,11,.96) 70%);border:1px solid var(--faint);border-radius:20px;
+    padding:12px 14px 12px;box-shadow:0 24px 50px rgba(0,0,0,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  #volPop.on{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
+  body.land #volPop{left:var(--mid-x,50%);bottom:calc(92px + env(safe-area-inset-bottom))}
+  .vp-head{display:flex;justify-content:space-between;align-items:baseline;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase}
+  .vp-head b{font-size:20px;letter-spacing:1px;color:var(--ink);font-weight:400;font-family:var(--serif);font-variant-numeric:tabular-nums}
+  #volStage{height:184px;display:grid;place-items:center;perspective:700px;touch-action:none;user-select:none}
+  body.land #volStage{height:150px}
+  #volStyles{display:flex;gap:6px;justify-content:center}
+  .vs{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);padding:7px 10px;border-radius:999px;border:1px solid var(--faint)}
+  .vs.on{color:var(--amber);border-color:rgba(233,180,111,.55)}
+  /* fader */
+  .vf{width:46px;height:160px;position:relative;cursor:grab;touch-action:none}
+  body.land .vf{transform:scale(.85)}
+  .vf-slot{position:absolute;left:50%;top:6px;bottom:6px;width:8px;margin-left:-4px;border-radius:4px;background:#050403;box-shadow:inset 0 2px 4px #000,0 1px 0 rgba(255,255,255,.06)}
+  .vf-tick{position:absolute;left:0;height:1px;background:var(--faint)}
+  .vf-cap{position:absolute;left:0;top:0;width:46px;height:30px;border-radius:5px;will-change:transform;
+    background:linear-gradient(#3a3330,#1d1917 48%,#0f0c0b 52%,#2a2421);box-shadow:0 10px 14px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.18)}
+  .vf-cap::after{content:"";position:absolute;left:6px;right:6px;top:14px;height:2px;background:var(--amber);border-radius:1px;box-shadow:0 0 6px var(--amber)}
+  /* radyo skalası */
+  .vt{width:230px;height:110px;border-radius:12px;position:relative;overflow:hidden;cursor:ew-resize;touch-action:none;
+    background:linear-gradient(#1f150d,#0f0a07);box-shadow:inset 0 0 0 5px #3b2a1a,0 12px 20px rgba(0,0,0,.65)}
+  .vt-scale{position:absolute;inset:14px;border-radius:6px;background:linear-gradient(rgba(255,180,90,.28),rgba(255,140,50,.08));box-shadow:inset 0 0 20px rgba(255,150,60,.35)}
+  .vt-needle{position:absolute;left:18px;top:10px;bottom:10px;width:2px;background:#ff5a3a;box-shadow:0 0 8px #ff5a3a;will-change:transform}
+  .vt-glass{position:absolute;inset:0;background:linear-gradient(170deg,rgba(255,255,255,.18),rgba(255,255,255,0) 35%);pointer-events:none}
+  /* bakalit tuşlar */
+  .vk-wrap{display:flex;flex-direction:column;align-items:center}
+  .vk-row{display:flex;gap:14px}
+  .vk{width:72px;height:92px;border-radius:10px;font-size:28px;color:#e9c99a;font-family:var(--sans);
+    background:linear-gradient(#3a2c22,#21180f);box-shadow:0 10px 0 #120b06,0 18px 20px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,230,190,.25);transition:transform .08s,box-shadow .08s}
+  .vk:active{transform:translateY(8px);box-shadow:0 2px 0 #120b06,0 4px 8px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,230,190,.25)}
+  body.land .vk{height:76px}
+  .vk-bar{width:170px;height:8px;border-radius:4px;background:#1a1411;margin-top:20px;overflow:hidden;box-shadow:inset 0 1px 3px #000}
+  .vk-bar i{display:block;height:100%;background:linear-gradient(90deg,#c27a32,#e9b46f);box-shadow:0 0 10px var(--amber);transform-origin:0 50%;will-change:transform}
+  /* ışık basamakları */
+  .vs3{display:flex;align-items:flex-end;gap:5px;height:140px;cursor:pointer;touch-action:none;transform:rotateX(18deg) rotateY(-14deg);transform-style:preserve-3d}
+  body.land .vs3{transform:rotateX(18deg) rotateY(-14deg) scale(.85)}
+  .vs3 i{width:14px;border-radius:3px 3px 1px 1px;background:#241c17;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),4px 4px 0 #0a0807;transition:background .15s,box-shadow .15s}
+  .vs3 i.on{background:linear-gradient(#ffd79c,#d48a3d);box-shadow:0 0 12px rgba(233,180,111,.55),4px 4px 0 #3a2410}
+
   #toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:20;transform:translate(-50%,-8px);
     opacity:0;transition:opacity .35s, transform .35s;pointer-events:none;
     font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--ink);
@@ -169,6 +213,7 @@
       <button class="ic" id="prev" aria-label="Önceki"><svg viewBox="0 0 24 24"><path d="M18 6 9 12l9 6V6zM6 6v12"/></svg></button>
       <button class="ic" id="play" aria-label="Çal"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5.5v13l11-6.5z"/></svg></button>
       <button class="ic" id="next" aria-label="Sonraki"><svg viewBox="0 0 24 24"><path d="M6 6l9 6-9 6V6zM18 6v12"/></svg></button>
+      <button class="ic small" id="volBtn" aria-label="Ses"><svg viewBox="0 0 24 24" id="volIcon"><path d="M4 9h4l5-4v14l-5-4H4z"/></svg></button>
       <button class="ic small" id="libBtn" aria-label="Kütüphane"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="17" r="2.2"/><path d="M20.2 17V10"/></svg></button>
     </div>
   </div>
@@ -182,6 +227,14 @@
   </div>
 </div>
 
+
+<div id="volPop" role="dialog" aria-label="Ses">
+  <div class="vp-head"><span>Ses</span><b id="volVal">80</b></div>
+  <div id="volStage"></div>
+  <div id="volStyles">
+    <button class="vs" data-s="fader">Fader</button><button class="vs" data-s="tuner">Skala</button><button class="vs" data-s="keys">Tuşlar</button><button class="vs" data-s="stairs">Basamak</button>
+  </div>
+</div>
 <div class="scrim" id="scrim"></div>
 
 <section class="sheet" id="libSheet" aria-label="Kütüphane">
@@ -388,8 +441,9 @@ vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec2 L2 = vec2(1610., 330.);
   float d2 = length(p - L2);
   float f2 = .55 / (1. + pow(d2 / 430., 2.));
-  float lamp = uLamp * (1. + uPulse * .07 + uGlow * .85);
-  c += alb * sun * uGlow * uDay * .75;                    // ışık nabzı: güneş lekeleri ritimle parlar
+  float lamp = uLamp * (1. + uPulse * .07 + uGlow * 1.6);
+  c += alb * sun * uGlow * uDay * 1.4;
+  c *= 1. + uGlow * .16;                    // ışık nabzı: güneş lekeleri ritimle parlar
   c += alb * uLampCol * lamp * (f1 + f2) * 1.2;
   c += uLampCol * lamp * .22 * exp(-d2 / 150.);          // perde arkasındaki lambanın parıltısı
   c += uFlash * .22 * vec3(.75, .8, 1.) * alb;
@@ -414,6 +468,13 @@ void main(){
     float cr = sst(1348., 1368., p.x) * sst(560., 470., p.y);
     float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.);
     q.x += (sin(p.y * .017 - uT * 1.7 + p.x * .02) * 6. + sin(p.y * .041 - uT * 2.9) * 2.) * uCurtain * cm;
+    // soldaki bitki: saksıdan yukarı doğru artan hafif salınım
+    float pm = mp.b;
+    if (pm > .01) {
+      float hf = clamp((640. - p.y) / 360., 0., 1.);
+      float sw = sin(uT * 1.15 + p.y * .006) * 1.8 + sin(uT * 2.1 + p.x * .018 + 1.3) * .7;
+      q += vec2(sw, sw * .35 - abs(sw) * .2) * hf * hf * pm * uCurtain;
+    }
   }
   if (ext > .002) {
     // yumuşak rüzgar: düşük frekans, ağaç tepeleri daha çok, ara ara esinti
@@ -445,19 +506,18 @@ void main(){
   e += uFlash * vec3(.8, .85, 1.);
   e += rg.z * uRain * mix(.07, .02, uNight);
   e += uLamp * uLampCol * .045 + vec3(1., .6, .3) * uCandle * .04;
-  e *= 1. + uGlow * .14 * (1. - uNight);                               // geceleri camda iç mekan yansıması
+  e *= 1. + uGlow * .32 * (1. - uNight);                               // geceleri camda iç mekan yansıması
 
   vec3 col = mix(lightInterior(base, sun, p), e, ext);
 
   // ---- gizli kahve: pervazda fincan (ışığa göre aydınlatılır)
   if (uCoffee > .005) {
     vec2 sd = (p - vec2(545., 459.)) / vec2(62., 9.);
-    col *= 1. - .38 * uCoffee * exp(-dot(sd, sd));
+    col *= 1. - .3 * uCoffee * exp(-dot(sd, sd));
     vec2 cu = (p - vec2(485., 345.)) / vec2(120., 120.);
     if (all(greaterThan(cu, vec2(0.))) && all(lessThan(cu, vec2(1.)))) {
       vec4 cp = texture(uCup, cu);
       vec3 lit = lightInterior(cp.rgb, 0., p);
-      lit += cp.rgb * uDay * .12 * sst(.2, 0., abs(cu.x - .5) - .3);   // arkadan gelen ışığın kenar parlaması
       col = mix(col, lit, cp.a * uCoffee);
     }
   }
@@ -642,75 +702,115 @@ function drawLabel(track, art) {
    Doku 256x256 = sahnede 120x120 piksel, pervaz üstü (485,345)
    =========================================================== */
 function makeCup() {
-  const c = document.createElement('canvas'); c.width = c.height = 256;
+  // 512px doku, mat porselen: parlak nokta yok, yumuşak dağınık ışık, kontakt gölgeler
+  const S = 512, c = document.createElement('canvas'); c.width = c.height = S;
   const x = c.getContext('2d');
-  const CX = 128, K = .27;
-  const porcelain = (x0, x1) => {
+  const CX = 256, K = .27;
+  // mat silindir gölgelemesi: ışık sol önden ve yukarıdan (oda + pencere yansıması)
+  const lambert = (x0, x1, base, dark) => {
     const g = x.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, '#d9d4cb'); g.addColorStop(.12, '#f7f4ee'); g.addColorStop(.3, '#fffdf9');
-    g.addColorStop(.62, '#e6e1d8'); g.addColorStop(.9, '#c9c3b8'); g.addColorStop(1, '#efe9de');
+    for (let i = 0; i <= 16; i++) {
+      const u = i / 16, th = (u - .5) * Math.PI;              // -90..90 derece
+      let l = .42 + .58 * Math.max(0, Math.cos(th + .55));     // sola kaymış yumuşak ışık
+      l += .1 * Math.pow(Math.abs(Math.sin(th)), 6);            // arkadan kenar aydınlığı (çok hafif)
+      const r = Math.round(dark[0] + (base[0] - dark[0]) * l), gg = Math.round(dark[1] + (base[1] - dark[1]) * l), b = Math.round(dark[2] + (base[2] - dark[2]) * l);
+      g.addColorStop(u, `rgb(${r},${gg},${b})`);
+    }
     return g;
   };
-  const gold = (x0, x1) => {
-    const g = x.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, '#8a6a2a'); g.addColorStop(.3, '#f3d58a'); g.addColorStop(.55, '#b8913f'); g.addColorStop(.8, '#e8c675'); g.addColorStop(1, '#7a5c22');
-    return g;
-  };
-  // tabak
-  const sy = 226, srx = 112, sry = srx * K;
-  x.fillStyle = porcelain(CX - srx, CX + srx);
-  x.beginPath(); x.ellipse(CX, sy + 5, srx, sry, 0, 0, Math.PI * 2); x.fill();          // tabak kalınlığı
-  x.fillStyle = '#b9b2a6'; x.beginPath(); x.ellipse(CX, sy + 5, srx, sry, 0, 0, Math.PI); x.fill();
-  x.fillStyle = porcelain(CX - srx, CX + srx);
+  const POR = [222, 215, 202], POR_D = [128, 120, 108];
+  const GOLD = 'rgba(160,128,72,.85)';
+  // --- tabak
+  const sy = 452, srx = 206, sry = srx * K;
+  x.fillStyle = 'rgba(30,22,15,.35)'; x.filter = 'blur(10px)';
+  x.beginPath(); x.ellipse(CX + 6, sy + 16, srx * .98, sry * .9, 0, 0, Math.PI * 2); x.fill();
+  x.filter = 'none';
+  x.fillStyle = lambert(CX - srx, CX + srx, [190, 182, 168], [110, 102, 92]);               // tabak kenar kalınlığı
+  x.beginPath(); x.ellipse(CX, sy + 9, srx, sry, 0, 0, Math.PI * 2); x.fill();
+  x.fillStyle = lambert(CX - srx, CX + srx, POR, POR_D);
   x.beginPath(); x.ellipse(CX, sy, srx, sry, 0, 0, Math.PI * 2); x.fill();
-  x.strokeStyle = gold(CX - srx, CX + srx); x.lineWidth = 2.2;
-  x.beginPath(); x.ellipse(CX, sy, srx - 2, sry - 1, 0, 0, Math.PI * 2); x.stroke();
-  x.fillStyle = 'rgba(120,110,95,.18)'; x.beginPath(); x.ellipse(CX, sy, srx * .62, sry * .62, 0, 0, Math.PI * 2); x.fill();
-  // fincan gövdesi (yukarı doğru hafif genişleyen)
-  const top = 112, bot = 220, rt = 60, rb = 47;
-  x.fillStyle = 'rgba(60,50,40,.28)'; x.beginPath(); x.ellipse(CX + 4, bot + 2, rb + 8, (rb + 8) * K, 0, 0, Math.PI * 2); x.fill();
-  x.fillStyle = porcelain(CX - rt, CX + rt);
-  x.beginPath();
-  x.moveTo(CX - rt, top);
-  x.bezierCurveTo(CX - rt + 2, top + 55, CX - rb - 4, bot - 20, CX - rb, bot);
-  x.ellipse(CX, bot, rb, rb * K, 0, Math.PI, 0, true);
-  x.bezierCurveTo(CX + rb + 4, bot - 20, CX + rt - 2, top + 55, CX + rt, top);
-  x.closePath(); x.fill();
-  // ince altın bant ve kırmızı lale deseni şeridi
-  for (const [yy, rr, lw] of [[top + 16, rt - 1, 1.6], [bot - 14, rb + 1, 1.4]]) {
-    x.strokeStyle = gold(CX - rr, CX + rr); x.lineWidth = lw;
-    x.beginPath(); x.ellipse(CX, yy, rr, rr * K, 0, 0, Math.PI); x.stroke();
-  }
-  x.save();
-  x.beginPath(); x.ellipse(CX, top + 40, rt - 3, (rt - 3) * K + 12, 0, 0, Math.PI); x.ellipse(CX, top + 30, rt - 3, (rt - 3) * K, 0, Math.PI, 0, true); x.clip();
-  for (let i = -5; i <= 5; i++) {
-    const a = i / 5 * 1.25, px = CX + Math.sin(a) * (rt - 6), py = top + 34 + Math.cos(a) * (rt - 6) * K;
-    const sc = Math.cos(a);
-    x.fillStyle = `rgba(168,32,36,${.75 * sc})`;
-    x.beginPath(); x.ellipse(px, py, 3.2 * sc + .5, 5, 0, 0, Math.PI * 2); x.fill();
-    x.fillStyle = `rgba(190,150,60,${.8 * sc})`;
-    x.beginPath(); x.arc(px + 5.5 * sc, py + 1, 1.3, 0, Math.PI * 2); x.fill();
-  }
+  // tabağın çukuru (iç halka biraz koyu, kenar yükseltisi)
+  const wg = x.createRadialGradient(CX, sy, srx * .2, CX, sy, srx * .7);
+  wg.addColorStop(0, 'rgba(90,80,68,.10)'); wg.addColorStop(.85, 'rgba(90,80,68,.16)'); wg.addColorStop(1, 'rgba(255,250,240,.06)');
+  x.save(); x.scale(1, K); x.fillStyle = wg; x.beginPath(); x.arc(CX, sy / K, srx * .72, 0, Math.PI * 2); x.fill(); x.restore();
+  x.strokeStyle = GOLD; x.lineWidth = 2;
+  x.beginPath(); x.ellipse(CX, sy, srx - 5, sry - 2, 0, 0, Math.PI * 2); x.stroke();
+  // fincanın tabağa düşen yumuşak gölgesi (ışık soldan: gölge sağa)
+  x.fillStyle = 'rgba(40,30,22,.42)'; x.filter = 'blur(9px)';
+  x.beginPath(); x.ellipse(CX + 22, sy + 2, 104, 104 * K, 0, 0, Math.PI * 2); x.fill();
+  x.filter = 'none';
+  // --- fincan gövdesi: ağız geniş, alta doğru hafif lale gibi daralır, küçük ayak
+  const top = 228, bot = 436, rt = 116, rb = 84;
+  const body = new Path2D();
+  body.moveTo(CX - rt, top);
+  body.bezierCurveTo(CX - rt + 2, top + 92, CX - rb - 16, bot - 46, CX - rb, bot - 10);
+  body.lineTo(CX - rb + 4, bot);
+  body.ellipse(CX, bot, rb - 4, (rb - 4) * K, 0, Math.PI, 0, true);
+  body.lineTo(CX + rb, bot - 10);
+  body.bezierCurveTo(CX + rb + 16, bot - 46, CX + rt - 2, top + 92, CX + rt, top);
+  body.ellipse(CX, top, rt, rt * K, 0, 0, Math.PI, false);
+  body.closePath();
+  // kulp (gövdenin arkasında başlar, önce çizilir)
+  const handle = () => {
+    x.lineCap = 'round';
+    x.strokeStyle = lambert(CX + rt - 20, CX + rt + 56, [200, 193, 180], [105, 98, 88]); x.lineWidth = 15;
+    x.beginPath(); x.moveTo(CX + rt - 10, top + 44); x.bezierCurveTo(CX + rt + 56, top + 34, CX + rt + 50, top + 140, CX + rb + 10, top + 156); x.stroke();
+    x.strokeStyle = 'rgba(70,60,50,.35)'; x.lineWidth = 4;
+    x.beginPath(); x.moveTo(CX + rt + 2, top + 54); x.bezierCurveTo(CX + rt + 42, top + 50, CX + rt + 38, top + 128, CX + rb + 14, top + 142); x.stroke();
+  };
+  handle();
+  x.fillStyle = lambert(CX - rt, CX + rt, POR, POR_D); x.fill(body);
+  // ortam gölgesi: alta doğru koyulaşır, tabağa değdiği yerde en koyu
+  x.save(); x.clip(body);
+  const ao = x.createLinearGradient(0, top, 0, bot + 20);
+  ao.addColorStop(0, 'rgba(60,50,40,0)'); ao.addColorStop(.6, 'rgba(60,50,40,.08)'); ao.addColorStop(.9, 'rgba(50,40,30,.26)'); ao.addColorStop(1, 'rgba(40,30,22,.45)');
+  x.fillStyle = ao; x.fillRect(0, 0, S, S);
+  // ağız altındaki ince gölge (dudak kalınlığı)
+  const lip = x.createLinearGradient(0, top, 0, top + 40);
+  lip.addColorStop(0, 'rgba(60,50,40,.18)'); lip.addColorStop(1, 'rgba(60,50,40,0)');
+  x.fillStyle = lip; x.fillRect(0, top, S, 40);
   x.restore();
-  // kulp
-  x.strokeStyle = porcelain(CX + rt - 6, CX + rt + 30); x.lineWidth = 7; x.lineCap = 'round';
-  x.beginPath(); x.moveTo(CX + rt - 4, top + 22); x.bezierCurveTo(CX + rt + 30, top + 18, CX + rt + 26, top + 66, CX + rb + 4, top + 78); x.stroke();
-  x.strokeStyle = 'rgba(150,140,125,.5)'; x.lineWidth = 1.5;
-  x.beginPath(); x.moveTo(CX + rt, top + 26); x.bezierCurveTo(CX + rt + 24, top + 24, CX + rt + 21, top + 62, CX + rb + 6, top + 72); x.stroke();
-  // ağız: iç duvar + kahve köpüğü
-  x.fillStyle = '#e9e4da'; x.beginPath(); x.ellipse(CX, top, rt, rt * K, 0, 0, Math.PI * 2); x.fill();
-  const fr = rt - 6;
-  const fg = x.createRadialGradient(CX - 10, top + 2, 2, CX, top + 3, fr);
-  fg.addColorStop(0, '#c9a376'); fg.addColorStop(.55, '#a77a4c'); fg.addColorStop(.85, '#6b4325'); fg.addColorStop(1, '#3a2213');
-  x.fillStyle = fg; x.beginPath(); x.ellipse(CX, top + 3, fr, fr * K, 0, 0, Math.PI * 2); x.fill();
-  x.fillStyle = 'rgba(235,210,170,.55)';
-  for (let i = 0; i < 26; i++) {
-    const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * fr * .8;
-    x.beginPath(); x.arc(CX + Math.cos(a) * rr, top + 3 + Math.sin(a) * rr * K, Math.random() * 1.6 + .4, 0, Math.PI * 2); x.fill();
+  // mat altın: sadece ağız kenarında ince şerit
+  x.strokeStyle = GOLD; x.lineWidth = 3.2;
+  x.beginPath(); x.ellipse(CX, top + 1, rt - 1, (rt - 1) * K, 0, 0, Math.PI); x.stroke();
+  // --- ağız: arka iç duvar (gölgede), dudak, kahve
+  x.fillStyle = '#b9b1a3'; x.beginPath(); x.ellipse(CX, top, rt, rt * K, 0, 0, Math.PI * 2); x.fill();
+  const inner = x.createLinearGradient(0, top - rt * K, 0, top + 6);
+  inner.addColorStop(0, 'rgba(225,218,205,1)'); inner.addColorStop(1, 'rgba(150,140,125,1)');
+  x.fillStyle = inner; x.beginPath(); x.ellipse(CX, top, rt - 5, (rt - 5) * K, 0, 0, Math.PI * 2); x.fill();
+  // kahve: köpük kenarda koyulaşır, iç duvara yakın ince koyu halka; mat ve grenli
+  const fr = rt - 12, fy = top + 7;
+  const foam = x.createRadialGradient(CX - 18, fy - 3, 4, CX, fy, fr);
+  foam.addColorStop(0, '#9c7a55'); foam.addColorStop(.5, '#8a6845'); foam.addColorStop(.82, '#5e4029'); foam.addColorStop(1, '#2c1a0f');
+  x.fillStyle = foam; x.beginPath(); x.ellipse(CX, fy, fr, fr * K, 0, 0, Math.PI * 2); x.fill();
+  x.save(); x.beginPath(); x.ellipse(CX, fy, fr - 4, fr * K - 2, 0, 0, Math.PI * 2); x.clip();
+  for (let i = 0; i < 260; i++) {           // köpük kabarcıkları: çok küçük, mat
+    const a = Math.random() * Math.PI * 2, rr = Math.sqrt(Math.random()) * fr;
+    const l = Math.random();
+    x.fillStyle = l < .5 ? 'rgba(190,160,120,.35)' : 'rgba(60,40,25,.3)';
+    x.beginPath(); x.arc(CX + Math.cos(a) * rr, fy + Math.sin(a) * rr * K, Math.random() * 2 + .6, 0, Math.PI * 2); x.fill();
   }
-  x.strokeStyle = gold(CX - rt, CX + rt); x.lineWidth = 2.6;
-  x.beginPath(); x.ellipse(CX, top, rt - 1, (rt - 1) * K, 0, 0, Math.PI * 2); x.stroke();
-  return c;
+  // ön dudağın köpüğe düşürdüğü gölge
+  const fs = x.createLinearGradient(0, fy + fr * K - 10, 0, fy + fr * K);
+  fs.addColorStop(0, 'rgba(20,10,5,0)'); fs.addColorStop(1, 'rgba(20,10,5,.45)');
+  x.fillStyle = fs; x.fillRect(0, 0, S, S);
+  x.restore();
+  // ön dudak (ağzın ön kenarı, kalınlığı belli)
+  x.strokeStyle = 'rgb(206,199,186)'; x.lineWidth = 6;
+  x.beginPath(); x.ellipse(CX, top, rt - 3, (rt - 3) * K, 0, 0, Math.PI); x.stroke();
+  x.strokeStyle = GOLD; x.lineWidth = 2.2;
+  x.beginPath(); x.ellipse(CX, top, rt - .5, (rt - .5) * K, 0, 0, Math.PI * 2); x.stroke();
+  // --- son: hafif yumuşatma + porselen greni (fotoğrafla aynı dokuda dursun)
+  const out = document.createElement('canvas'); out.width = out.height = S;
+  const o = out.getContext('2d'); o.filter = 'blur(1.1px)'; o.drawImage(c, 0, 0);
+  const id = o.getImageData(0, 0, S, S), d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const n = (Math.random() - .5) * 9;
+    d[i] = Math.max(0, Math.min(255, d[i] + n)); d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n)); d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n));
+  }
+  o.putImageData(id, 0, 0);
+  return out;
 }
 
 /* ===========================================================
@@ -719,7 +819,7 @@ function makeCup() {
 const audio = new Audio();
 audio.preload = 'auto';
 audio.preservesPitch = false;
-let actx, analyser, gainNode, freq;
+let actx, analyser, gainNode, volNode, freq;
 function ensureAudioGraph() {
   if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
   actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -727,12 +827,14 @@ function ensureAudioGraph() {
   analyser = actx.createAnalyser();
   analyser.fftSize = 1024; analyser.smoothingTimeConstant = .78;
   gainNode = actx.createGain();
-  src.connect(gainNode); gainNode.connect(analyser); analyser.connect(actx.destination);
+  // ses düğmesi analizden sonra: görseller sesin kısıklığından etkilenmez
+  volNode = actx.createGain(); volNode.gain.value = Math.pow(volume / 100, 2); audio.volume = 1;
+  src.connect(gainNode); gainNode.connect(analyser); analyser.connect(volNode); volNode.connect(actx.destination);
   freq = new Uint8Array(analyser.frequencyBinCount);
 }
 const BANDS = 24;
 const bands = new Float32Array(BANDS);
-const levels = { bass: 0, mid: 0, high: 0, energy: 0, avgBass: 0, beat: false };
+const levels = { bass: 0, mid: 0, high: 0, energy: 0, avgBass: 0, beat: false, kick: 0 };
 let beatCool = 0;
 function readSpectrum(dt) {
   const k = 1 - Math.exp(-dt * 12);
@@ -761,6 +863,8 @@ function readSpectrum(dt) {
   beatCool -= dt;
   levels.beat = false;
   if (isPlaying && beatCool <= 0 && raw > .2 && (raw > levels.avgBass * 1.08 + .02 || rise > .07)) { levels.beat = true; beatCool = .22; }
+  // kick: sadece ani yükselişlerde 1'e yakın, sakin anlarda 0 (nabız efektleri bunu kullanır)
+  levels.kick = isPlaying ? clamp((raw - levels.avgBass) * 6 + (levels.beat ? .8 : 0), 0, 1) : 0;
 }
 
 /* ===========================================================
@@ -1260,7 +1364,7 @@ const fx = fxCanvas.getContext('2d');
 const VIZ_LIST = [
   ['bokeh', 'Bokeh'], ['wave', 'Dalga'], ['dust', 'Toz'], ['leaves', 'Yaprak ışığı'], ['fireflies', 'Ateş böceği'],
   ['rays', 'Huzme'], ['aura', 'Aura'], ['notes', 'Notalar'], ['pulse', 'Işık nabzı'], ['sky', 'Gökyüzü'],
-  ['wings', 'Kanatlar'], ['glints', 'Plak parıltısı'], ['mirror', 'Cam'], ['haze', 'Pus'], ['water', 'Su ışığı'],
+  ['wings', 'Kanatlar'], ['glints', 'Plak parıltısı'], ['mirror', 'Cam'], ['haze', 'Pus'],
   ['breath', 'Buğu'], ['seeds', 'Karahindiba'], ['breeze', 'Esinti'], ['prism', 'Gökkuşağı'], ['off', 'Kapalı']
 ];
 const VIZ = VIZ_LIST.map(v => v[0]);
@@ -1307,7 +1411,7 @@ function makeBeam(night) {
 const BEAM_DAY = makeBeam(false), BEAM_NIGHT = makeBeam(true);
 const rnd = (a, b) => a + Math.random() * (b - a);
 
-const orbs = Array.from({ length: 26 }, (_, i) => ({
+const orbs = Array.from({ length: 40 }, (_, i) => ({
   x: rnd(120, 1450), y: rnd(20, 520), r: rnd(7, 18), band: i % BANDS, c: i % 4,
   vx: rnd(-6, 6), vy: rnd(-4, 2), ph: rnd(0, 6.28)
 }));
@@ -1446,34 +1550,34 @@ const GLARE = (() => {
 const CANDLE_X = 300, CANDLE_Y = 980;
 let candleF = .7, candleN = 0;
 const candleSparks = [];
-// kostik doku: üst üste binen sinüs dalgalarının kesişimi, ince parlak ağ
-function makeCaustic(rgb) {
-  const N = 128, c = document.createElement('canvas'); c.width = c.height = N;
-  const x = c.getContext('2d'), img = x.createImageData(N, N), TP = Math.PI * 2;
-  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
-    const u = i / N * TP, v = j / N * TP;
-    let s = 0;
-    s += Math.sin(u * 2 + Math.sin(v * 3) * 1.2);
-    s += Math.sin(v * 2 + Math.sin(u * 3 + 1) * 1.2);
-    s += Math.sin((u + v) * 2 + Math.sin(u - v) * 1.5);
-    const w = Math.pow(1 - Math.min(1, Math.abs(s) / 1.1), 4);
-    const k = (j * N + i) * 4;
-    img.data[k] = rgb[0]; img.data[k + 1] = rgb[1]; img.data[k + 2] = rgb[2]; img.data[k + 3] = w * 255;
-  }
-  x.putImageData(img, 0, 0);
-  // hafif bulanıklaştır: çizgiler ağ gibi değil ışık gibi dursun
-  const c2 = document.createElement('canvas'); c2.width = c2.height = N;
-  const y = c2.getContext('2d'); y.filter = 'blur(1.6px)';
-  for (const [ox, oy] of [[0, 0], [N, 0], [-N, 0], [0, N], [0, -N]]) y.drawImage(c, ox, oy);
-  return c2;
-}
-const CAUSTIC_PAT_D = fx.createPattern(makeCaustic([215, 245, 255]), 'repeat');
-const CAUSTIC_PAT_N = fx.createPattern(makeCaustic([160, 190, 255]), 'repeat');
-let waterT = 0;
-// buğu katmanı (düşük çözünürlük, cam boyutunun 1/4'ü)
-const fogCv = document.createElement('canvas'); fogCv.width = 272; fogCv.height = 108;
+// buğu katmanı: camın yarı çözünürlüğü (545x216), yumuşak ölçeklenir
+const FOG_W = 545, FOG_H = 216;
+const fogCv = document.createElement('canvas'); fogCv.width = FOG_W; fogCv.height = FOG_H;
 const fogCtx = fogCv.getContext('2d');
+// buğunun kendi dokusu: düzgün değil, yer yer yoğun yer yer ince
+function makeFogTex(rgb) {
+  const c = document.createElement('canvas'); c.width = FOG_W; c.height = FOG_H;
+  const x = c.getContext('2d');
+  x.fillStyle = rgbaV(rgb, .62); x.fillRect(0, 0, FOG_W, FOG_H);
+  x.filter = 'blur(14px)';
+  for (let i = 0; i < 70; i++) {
+    x.fillStyle = rgbaV(rgb, Math.random() * .35);
+    x.beginPath(); x.ellipse(Math.random() * FOG_W, Math.random() * FOG_H, 20 + Math.random() * 70, 12 + Math.random() * 40, Math.random() * 3, 0, Math.PI * 2); x.fill();
+  }
+  // alt kenarda buğu daha yoğun (cam soğuk kenar)
+  x.filter = 'none';
+  const g = x.createLinearGradient(0, FOG_H * .55, 0, FOG_H);
+  g.addColorStop(0, rgbaV(rgb, 0)); g.addColorStop(1, rgbaV(rgb, .3));
+  x.fillStyle = g; x.fillRect(0, 0, FOG_W, FOG_H);
+  // çok ince mikro damlacık grenleri
+  const id = x.getImageData(0, 0, FOG_W, FOG_H), d = id.data;
+  for (let i = 3; i < d.length; i += 4) d[i] = Math.min(255, d[i] * (.95 + Math.random() * .1));
+  x.putImageData(id, 0, 0);
+  return c;
+}
+const FOG_DAY = makeFogTex([238, 242, 244]), FOG_NIGHT = makeFogTex([150, 135, 120]);
 const fogDrops = [];
+let fogNight = -1;
 // karahindiba tohumu: merkez + ince tüyler
 function makeSeed(rgb, a) {
   const c = document.createElement('canvas'); c.width = c.height = 48;
@@ -1519,7 +1623,8 @@ const CLOUD_SH = (() => {
   for (const [cx, cy, rx, ry] of [[90, 66, 60, 30], [150, 58, 70, 36], [196, 70, 40, 24]]) { x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); }
   return c;
 })();
-const cloudShadows = Array.from({ length: 3 }, (_, i) => ({ x: i * 700 - 200, y: rnd(200, 600), w: rnd(900, 1300), h: rnd(450, 650), v: rnd(26, 40) }));
+const cloudShadows = Array.from({ length: 2 }, (_, i) => ({ x: i * 1500 - 300, y: rnd(250, 600), w: rnd(1000, 1400), h: rnd(500, 700), v: rnd(85, 120) }));
+let cloudShade = 0;
 // benekli güneş lekesi sprite'ı: kenarı yumuşak ama belirgin
 const SPOT = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 64;
@@ -1660,9 +1765,15 @@ const VIZ_DRAW = {
     }
   },
   // Işık nabzı: odanın kendi ışığı müzikle atar (gündüz güneş lekeleri, gece lamba)
-  pulse(dt) {
-    const target = isPlaying ? levels.bass : 0;
-    glowS += (target - glowS) * (target > glowS ? Math.min(1, dt * 18) : Math.min(1, dt * 3));
+  pulse(dt, c, night) {
+    // her vuruşta oda ışığı parlar, sonra yavaşça söner
+    const target = levels.kick;
+    glowS += (target - glowS) * (target > glowS ? Math.min(1, dt * 22) : Math.min(1, dt * 2.6));
+    const isN = night > .5;
+    // pencereden (gece lambadan) odaya yayılan ışık dalgası
+    fx.globalAlpha = clamp(glowS * (isN ? .55 : .45), 0, .6);
+    fx.drawImage(isN ? BEAM_NIGHT : BEAM_DAY, 0, 0, STAGE_W, STAGE_H);
+    if (isN) { fx.globalAlpha = clamp(glowS * .5, 0, .5); fx.drawImage(GLOW, 1460, 120, 360, 360); }
   },
   // Kuşlar (gündüz) / Kayan yıldız (gece)
   sky(dt, c, night) {
@@ -1692,12 +1803,17 @@ const VIZ_DRAW = {
       fx.restore(); fx.save();
       fx.globalCompositeOperation = 'source-over';
       const sunny = clamp((c.day || 0) * 1.4, 0, 1);
+      let cover = 0;
       for (const cs of cloudShadows) {
-        cs.x += cs.v * (1 + levels.energy * .8) * dt;
-        if (cs.x > STAGE_W + 200) { cs.x = -cs.w - rnd(0, 400); cs.y = rnd(150, 650); }
-        fx.globalAlpha = clamp((.3 + levels.bass * .15) * sunny, 0, .45);
+        cs.x += cs.v * (1 + levels.energy * .6) * dt;
+        if (cs.x > STAGE_W + 200) { cs.x = -cs.w - rnd(200, 900); cs.y = rnd(250, 600); }
+        fx.globalAlpha = clamp(.42 * sunny, 0, .45);
         fx.drawImage(CLOUD_SH, cs.x, cs.y - cs.h / 2, cs.w, cs.h);
+        // gölge pencerenin (güneşin geldiği yer) üstündeyse oda kararır
+        const dx = (cs.x + cs.w / 2 - 900) / (cs.w * .55);
+        cover = Math.max(cover, Math.exp(-dx * dx * 2));
       }
+      cloudShade += (cover * sunny - cloudShade) * Math.min(1, dt * 2.5);
       fx.globalCompositeOperation = 'lighter';
     }
     fx.restore();
@@ -1836,49 +1952,47 @@ const VIZ_DRAW = {
       fx.drawImage(SPOT, s.x + sway - r, s.y - r * s.k, r * 2, r * 2 * s.k);
     }
   },
-  // Su ışığı: yakındaki bir sudan yansıyan dalgalı ışık ağı (kostik), müzikle kıpırdar
-  water(dt, c, night) {
-    const isN = night > .5;
-    waterT += dt * (.5 + levels.mid * 1.6);
-    const a = (isN ? .1 : .16) * (.55 + levels.bass * 1.4);
-    fx.save();
-    fx.beginPath(); fx.rect(0, 430, STAGE_W, 518); fx.clip();          // sadece oda yüzeyleri
-    for (let l = 0; l < 2; l++) {
-      fx.globalAlpha = clamp(a * (l ? .7 : 1), 0, .6);
-      fx.save();
-      fx.translate(Math.sin(waterT * .4 + l) * 60 + waterT * (l ? -14 : 18), Math.cos(waterT * .3 + l * 2) * 30 + waterT * (l ? 8 : -6));
-      fx.scale(l ? 4.2 : 5.4, l ? 2.1 : 2.7);
-      fx.fillStyle = isN ? CAUSTIC_PAT_N : CAUSTIC_PAT_D;
-      fx.fillRect(-400, 200, 1100, 500);
-      fx.restore();
-    }
-    fx.restore();
-  },
-  // Buğu: cam nefes alır gibi buğulanır, damlalar süzülüp iz bırakır
+  // Buğu: cam nefes alır gibi buğulanır; ince damlalar durup kalkarak süzülür, arkalarında temiz iz bırakır
   breath(dt, c, night) {
-    const isN = night > .5;
-    // buğuyu yavaşça biriktir
+    const isN = night > .5, tex = isN ? FOG_NIGHT : FOG_DAY;
+    if (fogNight !== +isN) {           // gece/gündüz değişince camı yeniden buğula
+      fogNight = +isN; fogCtx.globalCompositeOperation = 'copy'; fogCtx.globalAlpha = 1; fogCtx.drawImage(tex, 0, 0);
+    }
+    // buğu yavaşça geri gelir (izler zamanla kapanır)
     fogCtx.globalCompositeOperation = 'source-over';
-    fogCtx.fillStyle = isN ? `rgba(60,70,90,${Math.min(.2, dt * .6)})` : `rgba(236,240,242,${Math.min(.2, dt * .6)})`;
-    fogCtx.fillRect(0, 0, fogCv.width, fogCv.height);
-    // damlalar buğuyu silerek akar
-    if (Math.random() < dt * (1 + levels.bass * 8) && fogDrops.length < 14)
-      fogDrops.push({ x: rnd(4, fogCv.width - 4), y: rnd(0, fogCv.height * .4), v: rnd(6, 16), r: rnd(1, 1.8) });
+    fogCtx.globalAlpha = Math.min(.12, dt * .1);
+    fogCtx.drawImage(tex, 0, 0);
+    fogCtx.globalAlpha = 1;
+    // yeni damla: küçük, müzikle sıklaşır
+    if (Math.random() < dt * (.7 + levels.bass * 4) && fogDrops.length < 18)
+      fogDrops.push({ x: rnd(6, FOG_W - 6), y: rnd(-4, FOG_H * .45), px: 0, py: 0, v: 0, r: rnd(.9, 1.7), go: rnd(0, 1.5), w: rnd(0, 6) });
     fogCtx.globalCompositeOperation = 'destination-out';
-    fogCtx.fillStyle = 'rgba(0,0,0,.9)';
+    fogCtx.strokeStyle = 'rgba(0,0,0,.85)'; fogCtx.lineCap = 'round';
     for (let i = fogDrops.length - 1; i >= 0; i--) {
       const d = fogDrops[i];
-      d.y += d.v * dt * (Math.random() < .1 ? 3 : 1); d.x += (Math.random() - .5) * .6;
-      if (d.y > fogCv.height + 4) { fogDrops.splice(i, 1); continue; }
-      fogCtx.beginPath(); fogCtx.arc(d.x, d.y, d.r, 0, TAU2); fogCtx.fill();
+      d.px = d.x; d.py = d.y;
+      // dur-kalk hareket: damla birikir, sonra kayar
+      d.go -= dt;
+      if (d.go <= 0) { d.v = d.v > 0 ? 0 : rnd(18, 45); d.go = d.v > 0 ? rnd(.3, 1.2) : rnd(.2, 1.4); }
+      d.y += d.v * dt; d.x += Math.sin(d.y * .09 + d.w) * d.v * dt * .15;
+      if (d.y > FOG_H + 3) { fogDrops.splice(i, 1); continue; }
+      fogCtx.lineWidth = d.r * 2.6; fogCtx.strokeStyle = 'rgba(0,0,0,.3)';
+      fogCtx.beginPath(); fogCtx.moveTo(d.px, d.py); fogCtx.lineTo(d.x, d.y + .01); fogCtx.stroke();
+      fogCtx.lineWidth = d.r * 1.3; fogCtx.strokeStyle = 'rgba(0,0,0,.85)';
+      fogCtx.beginPath(); fogCtx.moveTo(d.px, d.py); fogCtx.lineTo(d.x, d.y + .01); fogCtx.stroke();
     }
     fx.save(); fx.clip(paneClip, 'evenodd');
     fx.globalCompositeOperation = 'source-over';
-    fx.globalAlpha = clamp((isN ? .42 : .62) + levels.bass * .4 + Math.sin(T * .5) * .06, 0, .9);
+    fx.imageSmoothingQuality = 'high';
+    fx.globalAlpha = clamp((isN ? .32 : .7) + levels.bass * (isN ? .12 : .2) + Math.sin(T * .45) * .05, 0, .9);
     fx.drawImage(fogCv, 140, 0, 1090, 432);
-    // damla başlarında küçük parıltı
-    fx.globalCompositeOperation = 'lighter'; fx.fillStyle = isN ? 'rgb(170,190,230)' : 'rgb(255,255,255)';
-    for (const d of fogDrops) { fx.globalAlpha = .55; fx.beginPath(); fx.arc(140 + d.x * 4, d.y * 4, d.r * 2.2, 0, TAU2); fx.fill(); }
+    // damla başları: küçük, ışığı kıran parlak nokta
+    fx.globalCompositeOperation = 'lighter';
+    fx.fillStyle = isN ? 'rgb(150,170,210)' : 'rgb(255,255,255)';
+    for (const d of fogDrops) {
+      fx.globalAlpha = .45;
+      fx.beginPath(); fx.ellipse(140 + d.x * 2, d.y * 2, d.r * 1.1, d.r * 1.4, 0, 0, TAU2); fx.fill();
+    }
     fx.restore();
   },
   // Karahindiba: odada süzülen tüylü tohumlar; bas geldikçe yükselir
@@ -1987,9 +2101,12 @@ function drawGL(jitter) {
   gl.uniform1f(U.uArmA, armA);
   gl.uniform1f(U.uArmLift, armLift + jitter);
   gl.uniform1f(U.uKe, ARM.ke);
-  gl.uniform3fv(U.uAmb, c.amb); gl.uniform3fv(U.uExtTint, c.extTint); gl.uniform3fv(U.uLampCol, LAMP_COL);
-  gl.uniform1f(U.uExtBright, c.extBright); gl.uniform1f(U.uNight, c.night); gl.uniform1f(U.uLamp, c.lamp);
-  gl.uniform1f(U.uDay, c.day); gl.uniform1f(U.uSat, c.sat);
+  if (vizMode !== 'sky' || c.night > .5) cloudShade *= .95;
+  const cs = cloudShade;
+  gl.uniform3f(U.uAmb, c.amb[0] * (1 - cs * .2), c.amb[1] * (1 - cs * .18), c.amb[2] * (1 - cs * .1));
+  gl.uniform3fv(U.uExtTint, c.extTint); gl.uniform3fv(U.uLampCol, LAMP_COL);
+  gl.uniform1f(U.uExtBright, c.extBright * (1 - cs * .32)); gl.uniform1f(U.uNight, c.night); gl.uniform1f(U.uLamp, c.lamp);
+  gl.uniform1f(U.uDay, c.day * (1 - cs * .85)); gl.uniform1f(U.uSat, c.sat * (1 - cs * .3));
   gl.uniform1f(U.uFog, c.fog || 0); gl.uniform1f(U.uRain, c.rain || 0); gl.uniform1f(U.uSnow, c.snow || 0);
   gl.uniform1f(U.uWind, c.wind || 0); gl.uniform1f(U.uFlash, atmo.flash || 0);
   gl.uniform1f(U.uPulse, vizMode !== 'off' ? levels.bass : 0);
@@ -2177,6 +2294,19 @@ const TAP_EFFECTS = [
       const r = o.r * (.3 + outE(kk) * 2);
       x.beginPath(); x.ellipse(o.x, o.y + 4, r, r * .35, 0, 0, TAU); x.stroke();
     } },
+  { id: 'scatter', name: 'Bokeh saçılması', dur: 1.6,
+    init(o) { o.p = Array.from({ length: 16 }, () => ({ a: Math.random() * TAU, v: rnd(30, 110), r: rnd(3, 9), w: rnd(0, TAU), f: rnd(4, 9), s: rnd(.6, 1.2) })); },
+    draw(x, k, o) { // küçük, kenarı ışıklı daireler; karışık yönlere titreşerek dağılır
+      const t = k * this.dur;
+      for (const p of o.p) {
+        const d = p.v * outE(k) * p.s;
+        const px = o.x + Math.cos(p.a) * d + Math.sin(t * p.f + p.w) * 7, py = o.y + Math.sin(p.a) * d * .7 + Math.cos(t * p.f * .8 + p.w) * 6 - t * 12;
+        const rr = p.r * (.7 + Math.sin(k * Math.PI) * .5), a = Math.sin(Math.min(1, k * 4) * Math.PI / 2) * (1 - k);
+        const g = x.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0, rgba(o.c, a * .3)); g.addColorStop(.75, rgba(o.c, a * .55)); g.addColorStop(.9, rgba(o.c, a * .9)); g.addColorStop(1, rgba(o.c, 0));
+        x.fillStyle = g; x.beginPath(); x.arc(px, py, rr, 0, TAU); x.fill();
+      }
+    } },
   { id: 'orbit', name: 'Yörünge', dur: 1.5,
     draw(x, k, o) { // ters yönde dönen iki ışık başı, kuyruklarıyla
       const r = o.r * 1.3, fade = Math.sin(k * Math.PI), turn = outE(k) * TAU * 1.4;
@@ -2254,13 +2384,13 @@ const TAP_BY_ID = Object.fromEntries(TAP_EFFECTS.map(e => [e.id, e]));
 
 // atanabilir tuşlar ve varsayılanlar (her tuş farklı)
 const TAP_TARGETS = [
-  ['play', 'Çal'], ['stop', 'Durdur'], ['prev', 'Önceki'], ['next', 'Sonraki'], ['libBtn', 'Raf'],
-  ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['record', 'Plak']
+  ['play', 'Çal'], ['stop', 'Durdur'], ['prev', 'Önceki'], ['next', 'Sonraki'], ['volBtn', 'Ses'], ['libBtn', 'Raf'],
+  ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['groove', 'İlerleme çubuğu'], ['record', 'Plak']
 ];
 const TAP_DEFAULTS = {
   play: ['halo', '#e9b46f'], stop: ['shock', '#ff6b6b'], prev: ['sweep', '#47d3c9'], next: ['sparks', '#ffd166'],
-  libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
-  orderBtn: ['spiral', '#7ee081'], tapBtn: ['prism', '#f2ebe1'], record: ['pulse', '#e9b46f']
+  volBtn: ['pulse', '#47d3c9'], libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
+  orderBtn: ['spiral', '#7ee081'], groove: ['scatter', '#e9b46f'], tapBtn: ['prism', '#f2ebe1'], record: ['pulse', '#e9b46f']
 };
 let tapMap = Object.assign({}, TAP_DEFAULTS, store.get('tapMap', {}));
 // kaldırılan efektler kayıtlıysa Işık süpürme ile değiştir
@@ -2298,7 +2428,7 @@ function fireTap(target, el, x, y) {
   else spawnTap(m[0], m[1], x, y, 34);
 }
 for (const [id] of TAP_TARGETS) {
-  if (id === 'record') continue;
+  if (id === 'record' || id === 'groove') continue;
   const el = $(id); if (el) el.addEventListener('pointerdown', () => fireTap(id, el));
 }
 
@@ -2335,6 +2465,113 @@ $('tapAll').onclick = (e) => {
   saveTap(); renderTapUI(); previewAt(e.currentTarget.getBoundingClientRect()); toast('Tüm tuşlara uygulandı');
 };
 $('tapReset').onclick = (e) => { tapMap = Object.assign({}, TAP_DEFAULTS); saveTap(); renderTapUI(); previewAt(e.currentTarget.getBoundingClientRect()); };
+
+/* ===========================================================
+   SES KONTROLÜ: 4 stil (fader, radyo skalası, bakalit tuşlar, ışık basamakları)
+   =========================================================== */
+let volume = clamp(store.get('vol', 80), 0, 100);
+let volStyle = store.get('volStyle', 'fader');
+const VOL_STYLES = [['fader', 'Fader'], ['tuner', 'Skala'], ['keys', 'Tuşlar'], ['stairs', 'Basamak']];
+if (!VOL_STYLES.some(s => s[0] === volStyle)) volStyle = 'fader';
+let volDraw = null, volCloseT = 0;
+
+// algıda doğrusal ses eğrisi
+function applyVolume() {
+  const g = Math.pow(volume / 100, 2);
+  if (volNode) volNode.gain.setTargetAtTime(g, actx.currentTime, .03);
+  else audio.volume = g;
+  $('volVal').textContent = Math.round(volume);
+  $('volIcon').innerHTML = volume < 1
+    ? '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l4 6M21 9l-4 6"/>'
+    : '<path d="M4 9h4l5-4v14l-5-4H4z"/>' + (volume > 5 ? '<path d="M16.5 9.5a3.5 3.5 0 0 1 0 5"/>' : '') + (volume > 55 ? '<path d="M19 7a7 7 0 0 1 0 10"/>' : '');
+}
+function setVolume(v, save) {
+  volume = clamp(v, 0, 100);
+  applyVolume();
+  if (volDraw) volDraw();
+  if (save !== false) store.set('vol', Math.round(volume));
+  bumpVolClose();
+}
+function bumpVolClose() { clearTimeout(volCloseT); volCloseT = setTimeout(closeVol, 6000); }
+function openVol() {
+  renderVolStyle();
+  $('volPop').classList.add('on');
+  bumpVolClose();
+}
+function closeVol() { $('volPop').classList.remove('on'); clearTimeout(volCloseT); }
+
+// sürükleme yardımcıları (rect sadece dokunuş başında okunur)
+function volDragY(el, sens) {
+  let y0 = 0, v0 = 0, on = false;
+  el.addEventListener('pointerdown', e => { on = true; y0 = e.clientY; v0 = volume; el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e => { if (on) setVolume(v0 + (y0 - e.clientY) * sens); });
+  el.addEventListener('pointerup', () => on = false);
+  el.addEventListener('pointercancel', () => on = false);
+}
+function volDragX(el, pad, steps) {
+  let r = null;
+  const at = e => {
+    let v = (e.clientX - r.left - pad) / (r.width - pad * 2) * 100;
+    if (steps) v = Math.ceil(clamp(v, 0, 100) / (100 / steps)) * (100 / steps);
+    setVolume(v);
+  };
+  el.addEventListener('pointerdown', e => { r = el.getBoundingClientRect(); el.setPointerCapture(e.pointerId); at(e); });
+  el.addEventListener('pointermove', e => { if (r) at(e); });
+  el.addEventListener('pointerup', () => r = null);
+  el.addEventListener('pointercancel', () => r = null);
+}
+
+function renderVolStyle() {
+  const st = $('volStage');
+  st.innerHTML = '';
+  document.querySelectorAll('#volStyles .vs').forEach(b => b.classList.toggle('on', b.dataset.s === volStyle));
+  if (volStyle === 'fader') {
+    st.innerHTML = '<div class="vf"><div class="vf-slot"></div><div class="vf-cap"></div></div>';
+    const f = st.querySelector('.vf'), cap = f.querySelector('.vf-cap');
+    for (let i = 0; i <= 10; i++) { const t = document.createElement('div'); t.className = 'vf-tick'; t.style.top = (15 + i * 13) + 'px'; t.style.width = i % 5 ? '9px' : '15px'; f.prepend(t); }
+    volDraw = () => { cap.style.transform = `translateY(${(100 - volume) * 1.3}px)`; };
+    volDragY(f, .75);
+  } else if (volStyle === 'tuner') {
+    st.innerHTML = '<div class="vt"><div class="vt-scale"><svg width="100%" height="100%" viewBox="0 0 200 82" preserveAspectRatio="none"></svg></div><div class="vt-needle"></div><div class="vt-glass"></div></div>';
+    const t = st.querySelector('.vt'), n = t.querySelector('.vt-needle'), sv = t.querySelector('svg');
+    let h = '';
+    for (let i = 0; i <= 40; i++) h += `<line x1="${5 + i * 4.75}" y1="${i % 5 ? 58 : 48}" x2="${5 + i * 4.75}" y2="70" stroke="rgba(255,200,130,.75)" stroke-width="${i % 5 ? .6 : 1.2}"/>`;
+    [0, 25, 50, 75, 100].forEach((k, i) => h += `<text x="${12 + i * 44}" y="38" font-size="11" text-anchor="middle" fill="rgba(255,210,150,.85)" font-family="Georgia, serif">${k}</text>`);
+    sv.innerHTML = h;
+    volDraw = () => { n.style.transform = `translateX(${volume / 100 * 192}px)`; };
+    volDragX(t, 18);
+  } else if (volStyle === 'keys') {
+    st.innerHTML = '<div class="vk-wrap"><div class="vk-row"><button class="vk" data-d="-5" aria-label="Sesi azalt">−</button><button class="vk" data-d="5" aria-label="Sesi artır">+</button></div><div class="vk-bar"><i></i></div></div>';
+    const bar = st.querySelector('.vk-bar i');
+    volDraw = () => { bar.style.transform = `scaleX(${volume / 100})`; };
+    let hold;
+    st.querySelectorAll('.vk').forEach(k => {
+      const d = +k.dataset.d;
+      k.addEventListener('pointerdown', () => {
+        setVolume(volume + d);
+        hold = setTimeout(function rep() { setVolume(volume + d); hold = setTimeout(rep, 70); }, 380);
+      });
+      const stop = () => clearTimeout(hold);
+      k.addEventListener('pointerup', stop); k.addEventListener('pointerleave', stop); k.addEventListener('pointercancel', stop);
+    });
+  } else {
+    st.innerHTML = '<div class="vs3"></div>';
+    const s = st.querySelector('.vs3'), N = 12;
+    for (let i = 0; i < N; i++) { const b = document.createElement('i'); b.style.height = (16 + i * 10) + 'px'; s.appendChild(b); }
+    volDraw = () => { [...s.children].forEach((b, i) => b.classList.toggle('on', (i + 1) / N * 100 <= volume + .01)); };
+    volDragX(s, 0, N);
+  }
+  volDraw();
+}
+$('volBtn').onclick = () => { if ($('volPop').classList.contains('on')) closeVol(); else openVol(); };
+document.querySelectorAll('#volStyles .vs').forEach(b => b.onclick = () => {
+  volStyle = b.dataset.s; store.set('volStyle', volStyle); renderVolStyle(); bumpVolClose();
+});
+// panel dışına dokununca kapan
+document.addEventListener('pointerdown', (e) => {
+  if ($('volPop').classList.contains('on') && !$('volPop').contains(e.target) && !$('volBtn').contains(e.target)) closeVol();
+}, true);
+applyVolume();
 
 /* ===========================================================
    ARAYÜZ
@@ -2446,7 +2683,7 @@ $('orderBtn').onclick = () => {
 (() => {
   const g = $('groove'); let rect = null;
   const at = (x) => clamp((x - rect.left) / rect.width, 0, 1) * (audio.duration || 0);
-  g.addEventListener('pointerdown', (e) => { rect = g.getBoundingClientRect(); g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerdown', (e) => { rect = g.getBoundingClientRect(); g.setPointerCapture(e.pointerId); fireTap('groove', null, e.clientX, rect.top + 13); });
   g.addEventListener('pointerup', (e) => { if (rect) seekTo(at(e.clientX)); rect = null; });
 })();
 
@@ -2475,6 +2712,8 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
   if (e.code === 'ArrowRight') go(1);
   if (e.code === 'ArrowLeft') go(-1);
+  if (e.code === 'ArrowUp') { e.preventDefault(); setVolume(volume + 5); }
+  if (e.code === 'ArrowDown') { e.preventDefault(); setVolume(volume - 5); }
 });
 
 /* ===========================================================
