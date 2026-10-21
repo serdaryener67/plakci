@@ -521,7 +521,7 @@ void main(){
   if (uCoffee > .005) {
     vec2 sd = (p - vec2(1574., 793.)) / vec2(80., 13.);
     col *= 1. - .34 * uCoffee * exp(-dot(sd, sd));
-    vec2 ku = (p - vec2(1302., 628.)) / vec2(190., 119.);   // kozalak kitabın üstünde
+    vec2 ku = (p - vec2(1333., 574.)) / vec2(132., 136.);   // kozalak kitabın üstünde, dik
     if (all(greaterThan(ku, vec2(0.))) && all(lessThan(ku, vec2(1.)))) {
       vec4 kp = texture(uCone, ku);
       col = mix(col, lightInterior(kp.rgb, 0., p), kp.a * uCoffee);
@@ -825,98 +825,88 @@ function makeCup() {
   return out;
 }
 
-// kurumuş kozalak: yan yatmış, mat; pullar sarmal dizilir, uca doğru küçülür
-// Doku 512x320 = sahnede 190x119 piksel, kitabın kapağı üstünde (1302,628)
+// kurumuş, açılmış çam kozalağı: dik duruyor (sap altta), pullar katman katman açılmış
+// Doku 320x400 = sahnede 132x136 piksel (enine biraz açılır), kitabın kapağının üstünde (1333,574)
 function makeCone() {
-  const W = 512, H = 320, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const W = 320, H = 400, c = document.createElement('canvas'); c.width = W; c.height = H;
   const x = c.getContext('2d');
-  let seed = 7; const rr = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  // masaya düşen yumuşak gölge
-  x.save(); x.filter = 'blur(14px)'; x.fillStyle = 'rgba(25,14,6,.55)';
-  x.beginPath(); x.ellipse(W / 2 + 20, H * .7, W * .4, H * .12, .1, 0, Math.PI * 2); x.fill(); x.restore();
-  x.save();
-  x.translate(W / 2, H / 2 - 6); x.rotate(.1);
-  const L = 400, R = 98, x0 = -L / 2;                  // uç (apex) solda, sap sağda
-  const prof = u => R * Math.pow(Math.sin(Math.PI * Math.pow(clamp(u, 0, 1), 1.15)), .72) * (.35 + .65 * Math.min(1, u * 1.6));
-  // gövdenin koyu iç dolgusu (pulların arasındaki boşluklar bu renkte görünür)
-  x.fillStyle = '#24160c';
+  let seed = 11; const rr = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const CX = W / 2, yBot = 360, yTop = 78, R = 128;
+  // zemine (kitaba) düşen yumuşak gölge, ışık soldan: sağa uzar
+  x.save(); x.filter = 'blur(12px)'; x.fillStyle = 'rgba(20,12,5,.6)';
+  x.beginPath(); x.ellipse(CX + 26, yBot + 6, R * .95, 20, 0, 0, Math.PI * 2); x.fill(); x.restore();
+  // yumurta biçimi profil: alt-orta geniş, tepe yuvarlak
+  const prof = v => R * Math.pow(Math.sin(Math.PI * clamp(.1 + v * .86, 0, 1)), .5) * (1 - v * .2);
+  const yAt = v => yBot - v * (yBot - yTop);
+  // iç gövde: pulların arasındaki derin karanlık
+  x.fillStyle = '#1c1008';
   x.beginPath();
-  for (let i = 0; i <= 60; i++) { const u = i / 60; x.lineTo(x0 + u * L, -prof(u) * .92); }
-  for (let i = 60; i >= 0; i--) { const u = i / 60; x.lineTo(x0 + u * L, prof(u) * .92); }
+  for (let i = 0; i <= 40; i++) { const v = i / 40; x.lineTo(CX - prof(v) * .86, yAt(v)); }
+  for (let i = 40; i >= 0; i--) { const v = i / 40; x.lineTo(CX + prof(v) * .86, yAt(v)); }
   x.closePath(); x.fill();
-  // pullar: uçtan sapa doğru çizilir (sapa yakın pullar üstte kalır); her pul biraz farklı
-  const rows = 13, per = 10, scales = [];
-  for (let i = 0; i < rows; i++) {
-    const u0 = .05 + i / (rows - 1) * .9;
-    for (let j = 0; j <= per; j++) {
-      const th = -Math.PI / 2 + (j + (i % 2) * .5) / per * Math.PI + (rr() - .5) * .2;
-      if (th > Math.PI / 2 + .1) continue;
-      scales.push({ u: u0 + (rr() - .5) * .03, th, z: Math.cos(th), sz: .78 + rr() * .44, rot: (rr() - .5) * .45, tone: .75 + rr() * .45, grey: rr() < .1 });
-    }
-  }
-  scales.sort((a, b) => a.u - b.u || a.z - b.z);
   const C = (c, k) => `rgb(${Math.round(Math.min(255, c[0] * k))},${Math.round(Math.min(255, c[1] * k))},${Math.round(Math.min(255, c[2] * k))})`;
-  for (const sc of scales) {
-    const r = prof(sc.u), cx = x0 + sc.u * L, sn = Math.sin(sc.th), fs = Math.max(.25, sc.z);
-    const w = (Math.PI * r / per) * 1.2 * sc.sz, h = (L / rows) * 1.35 * sc.sz;
-    const lam = clamp(.5 + .55 * (fs * .5 - sn * .4 + .25), .3, 1.15) * sc.tone;
-    const top = sc.grey ? [128, 108, 88] : [138, 86, 48], tip = sc.grey ? [150, 132, 112] : [172, 122, 80], back = [58, 34, 18];
-    if (Math.abs(sn) > .9) {
-      // yandan görünen pul: gövdeden dışarı ve uca doğru çıkan sivri diken (siluet tırtıklı olur)
-      const out = sn > 0 ? 1 : -1, by = sn * r * .9;
-      x.fillStyle = C(back, lam * .9);
-      x.beginPath(); x.moveTo(cx + h * .4, by); x.quadraticCurveTo(cx - h * .1, by + out * w * .4, cx - h * .5, by + out * w * .3 * sc.sz); x.lineTo(cx - h * .3, by - out * w * .1); x.closePath(); x.fill();
-      x.fillStyle = C(tip, lam * (out < 0 ? 1 : .7));
-      x.beginPath(); x.moveTo(cx + h * .15, by + out * w * .06); x.quadraticCurveTo(cx - h * .15, by + out * w * .32, cx - h * .5, by + out * w * .3 * sc.sz); x.lineTo(cx - h * .32, by + out * w * .1); x.closePath(); x.fill();
-      continue;
+  // katmanlar alttan üste çizilir: üst katmanın açık renkli alt kenarı, alttakinin üstüne biner
+  const rows = 9;
+  for (let i = 0; i < rows; i++) {
+    const v = .04 + i / (rows - 1) * .9, r = prof(v), yc = yAt(v);
+    const per = Math.max(4, Math.round(3 + r / 16));
+    const items = [];
+    for (let j = 0; j < per * 2; j++) {
+      const th = (j + (i % 2) * .5) / per * Math.PI - Math.PI / 2 + (rr() - .5) * .25;   // ön yarım: -90..+90
+      if (th > Math.PI / 2 + .15 || th < -Math.PI / 2 - .15) continue;
+      items.push({ th, z: Math.cos(th), sz: .8 + rr() * .4, tone: .8 + rr() * .35, tilt: (rr() - .5) * .3 });
     }
-    const cy = sn * r * 1.02;
-    x.save(); x.translate(cx, cy); x.rotate(sn * .45 + sc.rot);
-    x.scale(1, fs * .78 + .22);
-    // pulun arkasındaki derin boşluk
-    x.fillStyle = 'rgba(12,7,3,.92)';
-    x.beginPath(); x.ellipse(0, w * .1, h * .66, w * .66, 0, 0, Math.PI * 2); x.fill();
-    // kalınlık: alt yüz
-    x.fillStyle = C(back, lam * .8);
-    x.beginPath(); x.moveTo(h * .42, 0); x.lineTo(-h * .64, w * .1); x.lineTo(-h * .08, w * .55); x.closePath(); x.fill();
-    // apofiz: uca bakan sivri eşkenar dörtgen
-    const g = x.createLinearGradient(h * .42, 0, -h * .64, 0);
-    g.addColorStop(0, C(back, lam)); g.addColorStop(.45, C(top, lam)); g.addColorStop(1, C(tip, lam));
-    x.fillStyle = g;
-    x.beginPath();
-    x.moveTo(h * .42, -w * .06);
-    x.lineTo(-h * .02, -w * .5);
-    x.quadraticCurveTo(-h * .4, -w * .3, -h * .64, 0);
-    x.quadraticCurveTo(-h * .4, w * .3, -h * .02, w * .44);
-    x.closePath(); x.fill();
-    // enine sırt ve göbek
-    x.strokeStyle = `rgba(28,16,6,${.4 * fs})`; x.lineWidth = 1.3;
-    x.beginPath(); x.moveTo(-h * .58, 0); x.lineTo(-h * .02, -w * .04); x.stroke();
-    x.fillStyle = `rgba(30,17,8,${.8 * fs})`;
-    x.beginPath(); x.ellipse(-h * .4, -w * .01, 2.4, 1.8, 0, 0, Math.PI * 2); x.fill();
-    // uçtaki kurumuş açık kenar
-    x.strokeStyle = C(tip, lam * 1.15); x.globalAlpha = .5; x.lineWidth = 1;
-    x.beginPath(); x.moveTo(-h * .3, -w * .34); x.quadraticCurveTo(-h * .55, -w * .12, -h * .64, 0); x.stroke();
-    x.globalAlpha = 1;
-    x.restore();
+    items.sort((a, b) => a.z - b.z);
+    for (const it of items) {
+      const fs = Math.max(.12, it.z), sx = CX + Math.sin(it.th) * r * 1.02;
+      const w = (Math.PI * r / per) * 1.05 * it.sz, h = ((yBot - yTop) / rows) * 1.9 * it.sz;
+      // ışık sol üstten
+      const lam = clamp(.5 + .55 * (fs * .5 - Math.sin(it.th) * .35 + .2) - i * .006, .42, 1.12) * it.tone;
+      const body = [142, 94, 58], rim = [218, 184, 144], deep = [50, 28, 14];
+      x.save(); x.translate(sx, yc); x.rotate(-Math.sin(it.th) * 1.05 + it.tilt); x.scale(fs * .7 + .3, 1);
+      // pulun altına düşen gölge (alttaki katmanın üstüne)
+      if (fs > .45) {
+        x.fillStyle = 'rgba(14,7,3,.7)';
+        x.beginPath(); x.ellipse(0, h * .36, w * .42, h * .2, 0, 0, Math.PI * 2); x.fill();
+      }
+      // pul: aşağı ve dışa bakan yuvarlak uçlu kalkan
+      const g = x.createLinearGradient(0, -h * .5, 0, h * .42);
+      g.addColorStop(0, C(deep, lam)); g.addColorStop(.4, C(body, lam)); g.addColorStop(.72, C(body, lam * 1.15)); g.addColorStop(1, C(rim, lam * 1.05));
+      x.fillStyle = g;
+      // damla biçimi: kökü dar (içeride, üst katmanın altında), ucu geniş ve yuvarlak
+      x.beginPath();
+      x.moveTo(0, -h * .58);
+      x.quadraticCurveTo(w * .62, -h * .2, w * .4, h * .26);
+      x.quadraticCurveTo(0, h * .5, -w * .4, h * .26);
+      x.quadraticCurveTo(-w * .62, -h * .2, 0, -h * .58);
+      x.fill();
+      // açık renkli kurumuş kenar ve ortadaki ince sırt
+      x.strokeStyle = C(rim, lam * 1.05); x.globalAlpha = .7; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(w * .3, h * .3); x.quadraticCurveTo(0, h * .47, -w * .3, h * .3); x.stroke();
+      x.globalAlpha = .35; x.strokeStyle = C(deep, lam); x.lineWidth = 1.2;
+      x.beginPath(); x.moveTo(0, -h * .3); x.lineTo(0, h * .3); x.stroke();
+      x.globalAlpha = 1;
+      x.restore();
+    }
   }
-  // sap
-  x.fillStyle = '#4a3020';
-  x.beginPath(); x.ellipse(x0 + L + 8, 0, 14, 9, 0, 0, Math.PI * 2); x.fill();
-  x.fillStyle = '#6b4a30'; x.fillRect(x0 + L + 14, -4, 18, 8);
-  x.restore();
-  // genel hacim: alt yarı ve uçlar koyulaşır (mat, parlak nokta yok)
+  // tepe: küçük, kapalı pullar
+  x.fillStyle = '#4a2e18';
+  x.beginPath(); x.ellipse(CX, yTop + 6, 16, 12, 0, 0, Math.PI * 2); x.fill();
+  // genel hacim: sağ taraf ve alt gölgede (mat)
   x.globalCompositeOperation = 'source-atop';
-  const v = x.createLinearGradient(0, H * .18, 0, H * .78);
-  v.addColorStop(0, 'rgba(255,230,190,.06)'); v.addColorStop(.5, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(10,5,2,.45)');
-  x.fillStyle = v; x.fillRect(0, 0, W, H);
+  const sh = x.createLinearGradient(CX - R, 0, CX + R, 0);
+  sh.addColorStop(0, 'rgba(255,235,200,.05)'); sh.addColorStop(.55, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(8,4,2,.5)');
+  x.fillStyle = sh; x.fillRect(0, 0, W, H);
+  const sv = x.createLinearGradient(0, yTop, 0, yBot + 10);
+  sv.addColorStop(0, 'rgba(0,0,0,0)'); sv.addColorStop(.75, 'rgba(0,0,0,.05)'); sv.addColorStop(1, 'rgba(8,4,2,.45)');
+  x.fillStyle = sv; x.fillRect(0, 0, W, H);
   // hafif yumuşatma + gren
   const out = document.createElement('canvas'); out.width = W; out.height = H;
-  const o = out.getContext('2d'); o.filter = 'blur(.8px)'; o.drawImage(c, 0, 0);
+  const o = out.getContext('2d'); o.filter = 'blur(.7px)'; o.drawImage(c, 0, 0);
   const id = o.getImageData(0, 0, W, H), d = id.data;
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue;
-    const n = (Math.random() - .5) * 10;
+    const n = (Math.random() - .5) * 12;
     d[i] = clamp(d[i] + n, 0, 255); d[i + 1] = clamp(d[i + 1] + n, 0, 255); d[i + 2] = clamp(d[i + 2] + n, 0, 255);
   }
   o.putImageData(id, 0, 0);
