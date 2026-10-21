@@ -1,0 +1,1412 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d0b0a">
+<title>Plakçı</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root{
+    --bg:#0d0b0a;
+    --ink:#f2ebe1;
+    --muted:rgba(242,235,225,.52);
+    --faint:rgba(242,235,225,.14);
+    --amber:#e9b46f;
+    --teal:#47d3c9;
+    --serif:"Noto Serif", "Source Serif Pro", Georgia, serif;
+    --sans:"Roboto", system-ui, sans-serif;
+    --scene-h:56vh;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:var(--sans);user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  canvas{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block}
+  #gl{z-index:0}
+  #fx{z-index:1;pointer-events:none}
+  #hit{position:fixed;inset:0;z-index:2;touch-action:none}
+
+  /* sahnenin alt kenarını panele eriten geçiş (sadece dikey ekranda) */
+  #fade{position:fixed;left:0;right:0;top:calc(var(--scene-h) - 110px);height:112px;z-index:3;pointer-events:none;
+    background:linear-gradient(to bottom, rgba(13,11,10,0), var(--bg) 92%)}
+
+  /* ---- Alt panel ---- */
+  #panel{position:fixed;left:0;right:0;top:calc(var(--scene-h) - 26px);bottom:0;z-index:4;
+    display:flex;flex-direction:column;justify-content:space-between;
+    padding:0 26px calc(18px + env(safe-area-inset-bottom));}
+  .info{min-height:84px}
+  #title{font-family:var(--serif);font-size:25px;line-height:1.18;font-weight:400;letter-spacing:.2px;
+    margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #nextUp{margin-top:14px;font-family:var(--serif);font-style:italic;font-size:13px;color:rgba(242,235,225,.34);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #artist{margin-top:8px;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .groove{position:relative;height:28px;margin-top:6px;touch-action:none}
+  .groove .line{position:absolute;left:0;right:0;top:13px;height:1px;background:var(--faint)}
+  .groove .fill{position:absolute;left:0;right:0;top:13px;height:1px;background:var(--amber);
+    transform-origin:0 50%;transform:scaleX(0);will-change:transform}
+  .times{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums;letter-spacing:1px;margin-top:-4px}
+
+  .controls{display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px}
+  .ic{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;opacity:.85;transition:opacity .2s, transform .15s}
+  .ic:active{transform:scale(.92);opacity:1}
+  .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+  .ic.small svg{width:18px;height:18px}
+  #play{width:74px;height:74px;border:1px solid rgba(242,235,225,.28);position:relative;opacity:1}
+  #play svg{width:26px;height:26px;fill:currentColor;stroke:none}
+  #play::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:1px solid rgba(233,180,111,.0);
+    transition:border-color .6s}
+  body.playing #play::after{border-color:rgba(233,180,111,.35)}
+
+  .chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .chip{font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);
+    padding:9px 13px;border:1px solid var(--faint);border-radius:999px;transition:color .2s,border-color .2s}
+  .chip:active{color:var(--ink);border-color:rgba(242,235,225,.4)}
+  .chip b{font-weight:500;color:var(--ink)}
+
+  /* boş durum */
+  #empty{display:none;text-align:center}
+  body.empty #empty{display:block}
+  body.empty .player-only{display:none}
+  #empty p{color:var(--muted);font-size:13px;line-height:1.6;margin:8px 0 22px}
+  .btn{display:inline-block;padding:14px 26px;border:1px solid rgba(233,180,111,.55);border-radius:999px;
+    color:var(--amber);letter-spacing:2.5px;font-size:11px;text-transform:uppercase}
+
+  /* ---- Yatay ekran (telefon yatay, tablet, PC): panel sahnenin üstünde. body.land JS ile verilir ---- */
+  body.land #fade{top:auto;bottom:0;height:46vh;background:linear-gradient(to bottom, rgba(13,11,10,0), rgba(13,11,10,.86) 75%)}
+  body.land #panel{top:auto;height:auto;flex-direction:row;align-items:flex-end;gap:22px;
+    padding:0 calc(26px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left))}
+  body.land .info{flex:1;min-width:0;min-height:0}
+  body.land #title{font-size:21px;-webkit-line-clamp:1}
+  body.land .mid{flex:1.2;max-width:560px}
+  body.land .controls{margin:2px 0 0}
+  body.land #play{width:60px;height:60px}
+  body.land .chips{flex-direction:column;align-items:flex-end;gap:6px}
+  body.land .chip{padding:7px 11px}
+  body.land #empty{flex:1;text-align:left}
+
+  /* ---- Alt sayfalar (kütüphane / atmosfer) ---- */
+  .scrim{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .3s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;left:0;right:0;bottom:0;z-index:10;max-height:78vh;display:flex;flex-direction:column;
+    background:rgba(20,17,15,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-top:1px solid var(--faint);border-radius:22px 22px 0 0;
+    transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.8,.2,1);
+    padding:10px 0 env(safe-area-inset-bottom)}
+  .sheet.on{transform:none}
+  .sheet .grab{width:38px;height:4px;border-radius:2px;background:var(--faint);margin:2px auto 12px}
+  .sheet h3{font-family:var(--serif);font-weight:400;font-size:19px;margin:0 22px 4px}
+  .sheet .sub{color:var(--muted);font-size:11px;letter-spacing:1.5px;margin:0 22px 12px}
+  .row{display:flex;gap:8px;align-items:center;margin:0 22px 12px}
+  #search{flex:1;background:transparent;border:1px solid var(--faint);border-radius:999px;color:var(--ink);
+    padding:11px 16px;font:inherit;font-size:14px;outline:none}
+  #list{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 10px 12px;flex:1}
+  .trk{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:11px 12px;border-radius:12px}
+  .trk:active{background:rgba(255,255,255,.04)}
+  .trk .n{width:22px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right;flex:none}
+  .trk .t{min-width:0;flex:1}
+  .trk .a{font-family:var(--serif);font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trk .b{font-size:10.5px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .trk.cur .a{color:var(--amber)}
+  .trk.cur .n{color:var(--amber)}
+  .opts{display:flex;flex-wrap:wrap;gap:8px;margin:0 22px 18px}
+  .opt{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;padding:10px 14px;border-radius:999px;
+    border:1px solid var(--faint);color:var(--muted)}
+  .opt.on{border-color:rgba(233,180,111,.6);color:var(--amber)}
+  .lbl{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:6px 22px 10px}
+  /* yatay ekranda alt sayfa sağdan açılır (taban kurallardan sonra gelmeli) */
+  body.land .sheet{left:auto;top:0;width:min(440px,62vw);max-height:none;border-radius:22px 0 0 22px;
+    border-top:0;border-left:1px solid var(--faint);transform:translateX(105%);
+    padding-right:env(safe-area-inset-right)}
+  body.land .sheet.on{transform:none}
+
+  #toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:20;transform:translate(-50%,-8px);
+    opacity:0;transition:opacity .35s, transform .35s;pointer-events:none;
+    font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--ink);
+    padding:9px 16px;border-radius:999px;background:rgba(13,11,10,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #nogl{display:none;position:fixed;inset:0;z-index:0;background:url(scene.webp) center/cover}
+</style>
+</head>
+<body class="empty">
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+<div id="nogl"></div>
+<div id="hit"></div>
+<div id="fade"></div>
+
+<div id="panel">
+  <div class="info player-only">
+    <h1 id="title">&nbsp;</h1>
+    <div id="artist">&nbsp;</div>
+    <div id="nextUp"></div>
+  </div>
+
+  <div id="empty">
+    <h1 style="font-family:var(--serif);font-weight:400;font-size:24px;margin:0">Plak rafı boş</h1>
+    <p>Telefondaki müzik klasörünü bir kez seç,<br>gerisini plakçı hatırlar.</p>
+    <button class="btn" id="pickBtn">Klasör seç</button>
+  </div>
+
+  <div class="mid player-only">
+    <div class="groove" id="groove">
+      <div class="line"></div><div class="fill" id="fill"></div>
+    </div>
+    <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+    <div class="controls">
+      <button class="ic small" id="stop" aria-label="Durdur"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5"/></svg></button>
+      <button class="ic" id="prev" aria-label="Önceki"><svg viewBox="0 0 24 24"><path d="M18 6 9 12l9 6V6zM6 6v12"/></svg></button>
+      <button class="ic" id="play" aria-label="Çal"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+      <button class="ic" id="next" aria-label="Sonraki"><svg viewBox="0 0 24 24"><path d="M6 6l9 6-9 6V6zM18 6v12"/></svg></button>
+      <button class="ic small" id="libBtn" aria-label="Kütüphane"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="17" r="2.2"/><path d="M20.2 17V10"/></svg></button>
+    </div>
+  </div>
+
+  <div class="chips">
+    <button class="chip" id="vizBtn">Görsel <b id="vizName">Bokeh</b></button>
+    <button class="chip" id="atmoBtn">Atmosfer <b id="atmoName">Oto</b></button>
+    <button class="chip player-only" id="orderBtn">Sıra <b id="orderName">Düz</b></button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<section class="sheet" id="libSheet" aria-label="Kütüphane">
+  <div class="grab"></div>
+  <h3>Plak rafı</h3>
+  <div class="sub" id="libInfo">0 parça</div>
+  <div class="row">
+    <input id="search" type="search" placeholder="Ara" autocomplete="off">
+    <button class="chip" id="changeDir">Klasör</button>
+  </div>
+  <div id="list"></div>
+</section>
+
+<section class="sheet" id="atmoSheet" aria-label="Atmosfer">
+  <div class="grab"></div>
+  <h3>Atmosfer</h3>
+  <div class="sub" id="atmoInfo">Hava durumu bekleniyor</div>
+  <div class="lbl">Zaman</div>
+  <div class="opts" id="timeOpts"></div>
+  <div class="lbl">Hava</div>
+  <div class="opts" id="wxOpts"></div>
+</section>
+
+<div id="toast"></div>
+<input type="file" id="fileInput" accept="audio/*,.mp3,.m4a,.flac,.ogg,.wav,.opus,.aac" multiple hidden>
+
+<script>
+'use strict';
+/* ===========================================================
+   Plakçı  |  sahne sabitleri (orijinal görsel piksel koordinatları)
+   =========================================================== */
+const STAGE_W = 1659, STAGE_H = 948;
+const REC = { cx: 798, cy: 535, rx: 276, ry: 76, labelR: 103 };
+const ARM = { pivotX: 1121, pivotY: 528, ke: 0.6, startDeg: 53, endDeg: 72, x: 1076, y: 446, w: 102, h: 213 };
+const SHEEN_BOX = [520, 457, 556, 156];
+const RPM = 33.333;
+const AUDIO_RE = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav)$/i;
+// pencere camları ve camın önündeki bitki (efekt kırpma için)
+const PANES = [
+  [[146,0],[676,0],[676,420],[146,428]],
+  [[779,0],[1224,0],[1218,412],[779,418]]
+];
+const PLANT = [[141,336],[160,312],[188,293],[198,283],[201,279],[241,266],[272,270],[291,289],[318,292],
+  [345,309],[368,336],[376,355],[366,370],[392,361],[415,365],[438,378],[457,401],[466,426],[141,426]];
+
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = (t) => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+
+/* ---------- küçük kalıcı depo (IndexedDB) ---------- */
+const kv = (() => {
+  let dbp;
+  const db = () => dbp || (dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('plakci', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  }));
+  const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => {
+    const t = d.transaction('kv', mode); const q = fn(t.objectStore('kv'));
+    t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); }); };
+  return { get: (k) => tx('readonly', s => s.get(k)), set: (k, v) => tx('readwrite', s => s.put(v, k)) };
+})();
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('plakci.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('plakci.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ===========================================================
+   GÖRÜNÜM: sahneyi ekrana yerleştir (sadece resize'da hesaplanır)
+   =========================================================== */
+const view = { s: 1, tx: 0, ty: 0, dpr: 1, w: 0, h: 0, portrait: true };
+function computeView() {
+  const vw = innerWidth, vh = innerHeight;
+  view.dpr = Math.min(devicePixelRatio || 1, 2);
+  view.w = vw; view.h = vh;
+  view.portrait = vh > vw * 1.05;
+  document.body.classList.toggle('land', !view.portrait);
+  if (view.portrait) {
+    // dikey: pikap genişliği ekranı doldursun, sahne üstte
+    view.s = Math.max(vw / 910, vh * .5 / STAGE_H);
+    view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
+    view.ty = 0;
+    document.documentElement.style.setProperty('--scene-h', (STAGE_H * view.s) + 'px');
+  } else {
+    // yatay: sahne ekranı kaplasın, pikap ortada
+    view.s = Math.max(vw / STAGE_W, vh / STAGE_H) * 1.02;
+    view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
+    view.ty = clamp(vh * 0.44 - 535 * view.s, vh - STAGE_H * view.s, 0);
+  }
+  for (const c of [glCanvas, fxCanvas]) {
+    c.width = Math.round(vw * view.dpr); c.height = Math.round(vh * view.dpr);
+  }
+}
+function toStage(clientX, clientY) {
+  return [(clientX - view.tx) / view.s, (clientY - view.ty) / view.s];
+}
+
+/* ===========================================================
+   WEBGL SAHNE: arka plan + hava + ışık + plak + kol tek shader'da
+   =========================================================== */
+const glCanvas = $('gl'), fxCanvas = $('fx');
+const gl = glCanvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
+
+const VS = `#version 300 es
+in vec2 aP;
+uniform vec4 uView; // s, tx, ty (cihaz pikseli)
+uniform vec2 uRes;
+out vec2 vP;
+void main(){
+  vP = aP;
+  vec2 px = uView.yz + aP * uView.x;
+  gl_Position = vec4(px.x / uRes.x * 2. - 1., 1. - px.y / uRes.y * 2., 0., 1.);
+}`;
+
+const FS = `#version 300 es
+precision highp float;
+in vec2 vP;
+out vec4 outC;
+uniform sampler2D uScene, uMaps, uDisc, uLabel, uSheen, uArm;
+uniform float uT, uRot, uArmA, uArmLift, uKe;
+uniform vec3 uAmb, uExtTint, uLampCol;
+uniform float uExtBright, uNight, uLamp, uDay, uSat, uFog, uRain, uSnow, uWind, uFlash, uPulse;
+const vec2 STAGE = vec2(1659., 948.);
+const vec2 RC = vec2(798., 535.);
+const float RR = 276., RK = 76./276., LR = 103.;
+const vec4 SHB = vec4(520., 457., 556., 156.);
+const vec4 ARMB = vec4(1076., 446., 102., 213.);
+const vec2 PIV = vec2(1121., 528.);
+
+float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x), mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y); }
+
+// camdaki yağmur damlaları: xy = kırılma ofseti, z = damla maskesi
+vec3 rainGlass(vec2 p){
+  vec3 acc = vec3(0.);
+  for (int l = 0; l < 2; l++){
+    float sc = l == 0 ? 24. : 13.;
+    vec2 g = p / sc + float(l) * 17.3;
+    vec2 id = floor(g); vec2 f = fract(g) - .5;
+    float h = hash(id);
+    vec2 c = (vec2(hash(id + 3.3), hash(id + 9.1)) - .5) * .5;
+    float r = mix(.07, .2, h);
+    float life = fract(uT * .05 + h * 7.);
+    float show = step(.5, hash(id + floor(uT * .05 + h * 7.))) * smoothstep(0., .1, life) * smoothstep(1., .85, life);
+    vec2 d = f - c;
+    float m = smoothstep(r, r * .55, length(d * vec2(1., .9))) * show;
+    acc.xy -= d * m * sc * 1.1;
+    acc.z = max(acc.z, m);
+  }
+  // kayan damlalar
+  float cw = 46.;
+  float col = floor(p.x / cw);
+  float h = hash(vec2(col, 4.1));
+  float sp = 40. + h * 70.;
+  float yd = mod(uT * sp + h * 900., STAGE.y * .55 + 60.) - 30.;
+  float cx = (col + .5) * cw + sin(yd * .045 + h * 6.) * 6.;
+  vec2 dd = vec2(p.x - cx, (p.y - yd) * .85);
+  float m = smoothstep(5.5, 2.5, length(dd)) * step(.35, h);
+  float trail = smoothstep(2.2, .6, abs(p.x - cx)) * smoothstep(0., -90., p.y - yd) * step(p.y, yd) * .5 * step(.35, h);
+  acc.xy -= dd * m * 1.2;
+  acc.z = max(acc.z, max(m, trail * .5));
+  return acc;
+}
+
+// iç mekan ışığı: güneş lekelerini bastır, ortam rengi, lambalar
+vec3 lightInterior(vec3 c, float sun, vec2 p){
+  vec3 alb = c;
+  c *= 1. - sun * (1. - uDay) * .82;
+  c *= uAmb;
+  vec2 L1 = vec2(-80., 160.);
+  float d1 = length((p - L1) * vec2(1., 1.2));
+  float f1 = 1. / (1. + pow(d1 / 640., 2.));
+  vec2 L2 = vec2(1610., 330.);
+  float d2 = length(p - L2);
+  float f2 = .55 / (1. + pow(d2 / 430., 2.));
+  float lamp = uLamp * (1. + uPulse * .07);
+  c += alb * uLampCol * lamp * (f1 + f2) * 1.2;
+  c += uLampCol * lamp * .22 * exp(-d2 / 150.);          // perde arkasındaki lambanın parıltısı
+  c += uFlash * .22 * vec3(.75, .8, 1.) * alb;
+  return c;
+}
+
+void main(){
+  vec2 p = vP;
+  vec4 mp = texture(uMaps, p / STAGE);
+  float ext = mp.r, sun = mp.g;
+
+  // ---- dış mekan: rüzgar salınımı + camdaki yağmur
+  vec2 q = p;
+  vec3 rg = vec3(0.);
+  if (ext > .002) {
+    float sway = sin(p.y * .03 + uT * 1.7 + noise(p * .008) * 6.) * 2.4
+               + (noise(vec2(p.y * .018, uT * .9)) - .5) * 6.;
+    q.x += sway * uWind * ext;
+    q.y += sin(p.x * .025 + uT * 1.2) * .9 * uWind * ext;
+    if (uRain > .01) { rg = rainGlass(p); q += rg.xy * uRain * ext; }
+  }
+  vec3 base = texture(uScene, q / STAGE).rgb;
+  float br = (uRain * 2.2 + uFog * 3.) * ext;
+  if (br > .3) {
+    base = (base * 2.
+      + texture(uScene, (q + vec2(br, 0.)) / STAGE).rgb + texture(uScene, (q - vec2(br, 0.)) / STAGE).rgb
+      + texture(uScene, (q + vec2(0., br)) / STAGE).rgb + texture(uScene, (q - vec2(0., br)) / STAGE).rgb) / 6.;
+  }
+
+  // ---- dış mekan renk/zaman
+  float lum = dot(base, vec3(.2126, .7152, .0722));
+  vec3 e = mix(vec3(lum), base, uSat) * uExtTint * uExtBright;
+  vec3 nightC = vec3(.025, .035, .065) + lum * vec3(.05, .07, .12);
+  e = mix(e, nightC, uNight);
+  float fn = noise(p * .005 + vec2(uT * .025, 0.)) * .6 + noise(p * .013 - vec2(uT * .04, 0.)) * .4;
+  vec3 fogC = mix(vec3(.80, .82, .84), vec3(.06, .07, .09), uNight);
+  e = mix(e, fogC, clamp(uFog * (.5 + .55 * fn), 0., .95));
+  e = mix(e, vec3(.88, .91, .97) * mix(1., .12, uNight), uSnow * .22);
+  e += uFlash * vec3(.8, .85, 1.);
+  e += rg.z * uRain * mix(.07, .02, uNight);
+  e += uLamp * uLampCol * .045;                               // geceleri camda iç mekan yansıması
+
+  vec3 col = mix(lightInterior(base, sun, p), e, ext);
+
+  // ---- plak (dönen doku + sabit parlama + etiket)
+  vec2 d = vec2(p.x - RC.x, (p.y - RC.y) / RK);
+  float r = length(d);
+  if (r < RR + 2.) {
+    float cs = cos(-uRot), sn = sin(-uRot);
+    vec2 dr = vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y);
+    vec4 disc = texture(uDisc, dr / (2. * RR) + .5);
+    vec3 rc = mix(base, disc.rgb, disc.a);
+    float la = smoothstep(LR + .8, LR - .8, r);
+    vec3 lab = texture(uLabel, dr / (2. * LR) + .5).rgb;
+    rc = mix(rc, lab, la);
+    vec2 sv = (p - SHB.xy) / SHB.zw;
+    vec3 sh = texture(uSheen, sv).rgb * (.18 + .82 * uDay) * (1. - la * .5);
+    rc = 1. - (1. - rc) * (1. - sh);
+    float a = max(disc.a, la);
+    col = mix(col, lightInterior(rc, 0., p), a);
+    // aks (spindle)
+    vec2 sp = p - vec2(798., 516.);
+    if (abs(sp.x) < 4.5 && sp.y > 0. && sp.y < 18.) {
+      float g = .55 + .45 * cos(sp.x * .6 - .8);
+      col = lightInterior(vec3(.62, .64, .66) * g, 0., p);
+    }
+    if (length(sp * vec2(1., 2.4)) < 4.6) col = lightInterior(vec3(.86, .87, .88), 0., p);
+  }
+
+  // ---- ton kolu: yatık düzlemde dönüş (scaleY-rotate-scaleY ters dönüşümü) + gölge
+  float ca = cos(uArmA), sa = sin(uArmA);
+  mat2 inv = mat2(ca, -uKe * sa, sa / uKe, ca);
+  vec2 off = vec2(-5., 8.) + vec2(-1., 1.6) * uArmLift;
+  vec2 qs = inv * (p - off - PIV) + PIV;
+  vec2 us = (qs - ARMB.xy) / ARMB.zw;
+  if (all(greaterThan(us, vec2(0.))) && all(lessThan(us, vec2(1.))) && p.y > 452.) {
+    float sha = texture(uArm, us, 1.5).a;
+    col *= 1. - sha * .32 * (.35 + .65 * max(uDay, uLamp * .8));
+  }
+  vec2 qa = inv * (p + vec2(0., uArmLift) - PIV) + PIV;
+  vec2 ua = (qa - ARMB.xy) / ARMB.zw;
+  if (all(greaterThan(ua, vec2(0.))) && all(lessThan(ua, vec2(1.)))) {
+    vec4 am = texture(uArm, ua);
+    col = mix(col, lightInterior(am.rgb, 0., p), am.a);
+  }
+
+  // hafif vinyet + grain
+  vec2 vv = p / STAGE - .5;
+  col *= 1. - dot(vv, vv) * .35;
+  col += (hash(p + fract(uT) * 91.) - .5) * .018;
+  outC = vec4(col, 1.);
+}`;
+
+let prog, U = {}, tex = {};
+function glInit() {
+  if (!gl) return false;
+  const sh = (type, src) => {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  };
+  prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, STAGE_W,0, 0,STAGE_H, STAGE_W,STAGE_H]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'aP');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const n = gl.getProgramParameter(prog, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const u = gl.getActiveUniform(prog, i); U[u.name] = gl.getUniformLocation(prog, u.name); }
+  return true;
+}
+const aniso = gl && (gl.getExtension('EXT_texture_filter_anisotropic'));
+function makeTex(unit, name, src, mip) {
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit);
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  if (mip) {
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  } else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.uniform1i(U[name], unit);
+  tex[name] = { t, unit, mip };
+}
+function updateTex(name, src) {
+  const o = tex[name]; if (!o) return;
+  gl.activeTexture(gl.TEXTURE0 + o.unit);
+  gl.bindTexture(gl.TEXTURE_2D, o.t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  if (o.mip) gl.generateMipmap(gl.TEXTURE_2D);
+}
+async function loadImg(src) {
+  const r = await fetch(src); const b = await r.blob();
+  return createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+}
+
+/* ===========================================================
+   PLAK ETİKETİ (albüm kapağı ya da varsayılan baskı)
+   =========================================================== */
+const labelCanvas = document.createElement('canvas');
+labelCanvas.width = labelCanvas.height = 512;
+function drawLabel(track, art) {
+  const c = labelCanvas.getContext('2d'), S = 512, R = 256;
+  c.clearRect(0, 0, S, S);
+  c.save();
+  c.beginPath(); c.arc(R, R, R, 0, Math.PI * 2); c.clip();
+  if (art) {
+    const k = Math.max(S / art.width, S / art.height);
+    c.drawImage(art, R - art.width * k / 2, R - art.height * k / 2, art.width * k, art.height * k);
+    const g = c.createRadialGradient(R, R, R * .6, R, R, R);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.35)');
+    c.fillStyle = g; c.fillRect(0, 0, S, S);
+  } else {
+    // krem kağıt etiket
+    const g = c.createRadialGradient(R * .8, R * .7, 20, R, R, R);
+    g.addColorStop(0, '#f4ead8'); g.addColorStop(1, '#e2d4bb');
+    c.fillStyle = g; c.fillRect(0, 0, S, S);
+    c.strokeStyle = 'rgba(120,90,60,.28)'; c.lineWidth = 1.2;
+    for (const rr of [244, 236, 120]) { c.beginPath(); c.arc(R, R, rr, 0, Math.PI * 2); c.stroke(); }
+    // kavisli yazı: dönüşü görünür kılar
+    const txt = ('PLAKÇI  ·  33⅓  ·  SIDE A  ·  ' + ((track && track.artist) || 'PROMPTART') + '  ·  ').toUpperCase();
+    c.fillStyle = 'rgba(80,58,38,.78)'; c.font = '500 19px Roboto, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const rad = 205, step = (Math.PI * 2) / Math.max(txt.length, 40);
+    for (let i = 0; i < txt.length; i++) {
+      const a = -Math.PI / 2 + i * step;
+      c.save(); c.translate(R + Math.cos(a) * rad, R + Math.sin(a) * rad); c.rotate(a + Math.PI / 2);
+      c.fillText(txt[i], 0, 0); c.restore();
+    }
+    // başlık
+    c.fillStyle = 'rgba(60,40,26,.9)'; c.font = 'italic 34px "Noto Serif", Georgia, serif';
+    const title = ((track && track.title) || 'Plakçı');
+    const words = title.split(' '); let line = '', lines = [];
+    for (const w of words) { const t2 = line ? line + ' ' + w : w; if (c.measureText(t2).width > 250 && line) { lines.push(line); line = w; } else line = t2; }
+    lines.push(line); lines = lines.slice(0, 2);
+    lines.forEach((l, i) => c.fillText(l, R, R - 70 - (lines.length - 1) * 20 + i * 40));
+    // turuncu nota işareti
+    c.fillStyle = '#d9773a'; c.beginPath(); c.arc(R, R + 140, 9, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+  // delik
+  c.fillStyle = '#1a1714'; c.beginPath(); c.arc(R, R, 14, 0, Math.PI * 2); c.fill();
+  if (gl) updateTex('uLabel', labelCanvas);
+}
+
+/* ===========================================================
+   SES: <audio> + WebAudio analiz
+   =========================================================== */
+const audio = new Audio();
+audio.preload = 'auto';
+audio.preservesPitch = false;
+let actx, analyser, gainNode, freq;
+function ensureAudioGraph() {
+  if (actx) { if (actx.state === 'suspended') actx.resume(); return; }
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = actx.createMediaElementSource(audio);
+  analyser = actx.createAnalyser();
+  analyser.fftSize = 1024; analyser.smoothingTimeConstant = .78;
+  gainNode = actx.createGain();
+  src.connect(gainNode); gainNode.connect(analyser); analyser.connect(actx.destination);
+  freq = new Uint8Array(analyser.frequencyBinCount);
+}
+const BANDS = 24;
+const bands = new Float32Array(BANDS);
+const levels = { bass: 0, mid: 0, high: 0, energy: 0 };
+function readSpectrum(dt) {
+  const k = 1 - Math.exp(-dt * 12);
+  if (analyser && isPlaying) {
+    analyser.getByteFrequencyData(freq);
+    const n = freq.length;
+    for (let i = 0; i < BANDS; i++) {
+      const a = Math.floor(Math.pow(n, i / BANDS)), b = Math.max(a + 1, Math.floor(Math.pow(n, (i + 1) / BANDS)));
+      let s = 0; for (let j = a; j < b; j++) s += freq[j];
+      const v = s / ((b - a) * 255);
+      bands[i] += (v - bands[i]) * k;
+    }
+  } else for (let i = 0; i < BANDS; i++) bands[i] += (0 - bands[i]) * k * .5;
+  let bs = 0, ms = 0, hs = 0;
+  for (let i = 0; i < 6; i++) bs += bands[i];
+  for (let i = 6; i < 15; i++) ms += bands[i];
+  for (let i = 15; i < BANDS; i++) hs += bands[i];
+  levels.bass = bs / 6; levels.mid = ms / 9; levels.high = hs / 9;
+  levels.energy = (levels.bass + levels.mid + levels.high) / 3;
+}
+
+/* ===========================================================
+   KÜTÜPHANE: klasör erişimi, tarama, ID3
+   =========================================================== */
+let tracks = [], order = [], pos = -1, dirHandle = null;
+let orderMode = store.get('order', 'linear'); // linear | shuffle | repeat1
+const hasDirPicker = 'showDirectoryPicker' in window;
+
+async function scanDir(dir, path, out) {
+  for await (const [name, h] of dir.entries()) {
+    if (h.kind === 'file' && AUDIO_RE.test(name)) out.push({ name, path: path + name, handle: h });
+    else if (h.kind === 'directory' && !name.startsWith('.')) await scanDir(h, path + name + '/', out);
+  }
+  return out;
+}
+function nameToMeta(name) {
+  const base = name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').replace(/^\d{1,3}[\s.\-]+/, '').trim();
+  const m = base.split(/\s+-\s+/);
+  return m.length >= 2 ? { artist: m[0].trim(), title: m.slice(1).join(' - ').trim() } : { artist: '', title: base };
+}
+function setTracks(list) {
+  list.sort((a, b) => a.path.localeCompare(b.path, 'tr', { numeric: true }));
+  tracks = list.map(t => Object.assign(t, nameToMeta(t.name)));
+  buildOrder();
+  renderList();
+  document.body.classList.toggle('empty', !tracks.length);
+  $('libInfo').textContent = tracks.length + ' parça' + (dirHandle ? '  ·  ' + dirHandle.name : '');
+  if (tracks.length) {
+    const last = store.get('last', null);
+    let idx = last ? tracks.findIndex(t => t.path === last.path) : -1;
+    if (idx < 0) idx = 0;
+    pos = order.indexOf(idx);
+    loadTrack(idx, false, last && tracks[idx].path === last.path ? last.time : 0);
+  }
+}
+function updateNextUp() {
+  const el = $('nextUp');
+  if (!tracks.length || orderMode === 'repeat1' || (pos >= order.length - 1 && orderMode !== 'shuffle')) { el.textContent = ''; return; }
+  const n = tracks[order[(pos + 1) % order.length]];
+  el.textContent = 'sırada: ' + (n.title || n.name) + (n.artist ? ', ' + n.artist : '');
+}
+function buildOrder() {
+  order = tracks.map((_, i) => i);
+  if (orderMode === 'shuffle') {
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  }
+}
+async function pickFolder() {
+  if (hasDirPicker) {
+    try {
+      const h = await window.showDirectoryPicker({ id: 'music', mode: 'read', startIn: 'music' });
+      dirHandle = h;
+      await kv.set('dir', h);
+      toast('Taranıyor');
+      setTracks(await scanDir(h, '', []));
+      toast(tracks.length + ' parça bulundu');
+    } catch (e) { if (e.name !== 'AbortError') { console.warn(e); $('fileInput').click(); } }
+  } else $('fileInput').click();
+}
+$('fileInput').addEventListener('change', (e) => {
+  const files = [...e.target.files].filter(f => AUDIO_RE.test(f.name) || f.type.startsWith('audio/'));
+  dirHandle = null;
+  setTracks(files.map(f => ({ name: f.name, path: (f.webkitRelativePath || f.name), file: f })));
+});
+async function restoreLibrary() {
+  if (!hasDirPicker) return;
+  try {
+    const h = await kv.get('dir');
+    if (!h) return;
+    dirHandle = h;
+    const perm = await h.queryPermission({ mode: 'read' });
+    if (perm === 'granted') setTracks(await scanDir(h, '', []));
+    else {
+      // izin yeniden istenmeli: kullanıcı dokunuşu şart
+      document.body.classList.add('empty');
+      $('empty').querySelector('h1').textContent = 'Plak rafı hazır';
+      $('empty').querySelector('p').innerHTML = '<b>' + h.name + '</b> klasörüne<br>tekrar erişmek için dokun.';
+      $('pickBtn').textContent = 'Rafı aç';
+      $('pickBtn').onclick = async () => {
+        if (await h.requestPermission({ mode: 'read' }) === 'granted') setTracks(await scanDir(h, '', []));
+        $('pickBtn').onclick = null;
+      };
+    }
+  } catch (e) { console.warn(e); }
+}
+
+// ---- ID3v2 okuyucu (başlık, sanatçı, kapak)
+function syncsafe(b, i) { return (b[i] & 0x7f) << 21 | (b[i+1] & 0x7f) << 14 | (b[i+2] & 0x7f) << 7 | (b[i+3] & 0x7f); }
+function decText(b) {
+  const enc = b[0], d = b.subarray(1);
+  let s;
+  try {
+    if (enc === 0) s = new TextDecoder('windows-1254').decode(d);
+    else if (enc === 1) s = new TextDecoder('utf-16').decode(d);
+    else if (enc === 2) s = new TextDecoder('utf-16be').decode(d);
+    else s = new TextDecoder('utf-8').decode(d);
+  } catch (e) { s = ''; }
+  return s.replace(/\0/g, ' ').trim();
+}
+async function readTags(file) {
+  const out = {};
+  try {
+    const h = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+    if (h[0] !== 0x49 || h[1] !== 0x44 || h[2] !== 0x33) return out;
+    const ver = h[3], flags = h[5], size = syncsafe(h, 6);
+    if (ver < 3) return out;
+    const b = new Uint8Array(await file.slice(10, 10 + Math.min(size, 12 * 1024 * 1024)).arrayBuffer());
+    let p = 0;
+    if (flags & 0x40) p = ver === 4 ? syncsafe(b, 0) : ((b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3]) >>> 0) + 4;
+    while (p + 10 <= b.length) {
+      const id = String.fromCharCode(b[p], b[p+1], b[p+2], b[p+3]);
+      if (!/^[A-Z0-9]{4}$/.test(id)) break;
+      const fs = ver === 4 ? syncsafe(b, p + 4) : ((b[p+4] << 24 | b[p+5] << 16 | b[p+6] << 8 | b[p+7]) >>> 0);
+      if (fs <= 0 || p + 10 + fs > b.length) break;
+      const body = b.subarray(p + 10, p + 10 + fs);
+      if (id === 'TIT2') out.title = decText(body);
+      else if (id === 'TPE1') out.artist = decText(body);
+      else if (id === 'TALB') out.album = decText(body);
+      else if (id === 'APIC' && !out.pic) {
+        const enc = body[0]; let i = 1;
+        while (i < body.length && body[i] !== 0) i++;
+        const mime = new TextDecoder('latin1').decode(body.subarray(1, i)) || 'image/jpeg';
+        i += 2; // null + resim tipi
+        if (enc === 1 || enc === 2) { while (i + 1 < body.length && !(body[i] === 0 && body[i+1] === 0)) i += 2; i += 2; }
+        else { while (i < body.length && body[i] !== 0) i++; i++; }
+        out.pic = new Blob([body.subarray(i)], { type: mime.includes('/') ? mime : 'image/' + mime.toLowerCase() });
+      }
+      p += 10 + fs;
+    }
+  } catch (e) { console.warn('ID3', e); }
+  return out;
+}
+
+/* ===========================================================
+   ÇALMA DURUMU + KOL MAKİNESİ
+   =========================================================== */
+let cur = -1, objUrl = null, artUrl = null, isPlaying = false, wantPlay = false;
+let armA = 0, armLift = 0, armMode = 'rest';   // rest | moving | tracking
+let platterSpeed = 0, platterTarget = 0, rot = 0;
+let seq = 0; // eşzamanlı animasyonları iptal etmek için
+const tweens = [];
+function tween(dur, fn) {
+  return new Promise(res => tweens.push({ t: 0, dur, fn, res }));
+}
+function stepTweens(dt) {
+  for (let i = tweens.length - 1; i >= 0; i--) {
+    const tw = tweens[i]; tw.t += dt;
+    const k = Math.min(1, tw.t / tw.dur); tw.fn(ease(k));
+    if (k >= 1) { tweens.splice(i, 1); tw.res(); }
+  }
+}
+const deg = (d) => d * Math.PI / 180;
+function progressAngle() {
+  const p = audio.duration ? clamp(audio.currentTime / audio.duration, 0, 1) : 0;
+  return deg(lerp(ARM.startDeg, ARM.endDeg, p));
+}
+async function armTo(angle, ms) { const a0 = armA; await tween(ms / 1000, k => armA = lerp(a0, angle, k)); }
+async function liftTo(px, ms) { const l0 = armLift; await tween(ms / 1000, k => armLift = lerp(l0, px, k)); }
+
+async function cueDown(myseq) {
+  armMode = 'moving';
+  await liftTo(7, 220); if (myseq !== seq) return false;
+  await armTo(progressAngle(), 900); if (myseq !== seq) return false;
+  await liftTo(0, 380); if (myseq !== seq) return false;
+  armMode = 'tracking';
+  return true;
+}
+async function cueRest(myseq) {
+  armMode = 'moving';
+  await liftTo(7, 200); if (myseq !== seq) return;
+  await armTo(0, 850); if (myseq !== seq) return;
+  await liftTo(0, 300); if (myseq !== seq) return;
+  armMode = 'rest';
+}
+
+async function loadTrack(idx, autoplay, startAt) {
+  const t = tracks[idx]; if (!t) return;
+  cur = idx;
+  let file;
+  try { file = t.file || await t.handle.getFile(); }
+  catch (e) { toast('Dosya açılamadı'); return; }
+  if (objUrl) URL.revokeObjectURL(objUrl);
+  objUrl = URL.createObjectURL(file);
+  audio.src = objUrl;
+  if (startAt) audio.addEventListener('loadedmetadata', () => { try { audio.currentTime = startAt; } catch (e) {} }, { once: true });
+  // etiket ve meta
+  const tags = await readTags(file);
+  if (tags.title) t.title = tags.title;
+  if (tags.artist) t.artist = tags.artist;
+  $('title').textContent = t.title || t.name;
+  $('artist').textContent = [t.artist, tags.album].filter(Boolean).join('  ·  ') || ' ';
+  let art = null;
+  if (artUrl) { URL.revokeObjectURL(artUrl); artUrl = null; }
+  if (tags.pic) {
+    try { art = await createImageBitmap(tags.pic); artUrl = URL.createObjectURL(tags.pic); } catch (e) { art = null; }
+  }
+  drawLabel(t, art);
+  updateMediaSession(t, tags);
+  markCurrent();
+  const row = $('list').querySelector(`.trk[data-i="${idx}"]`);
+  if (row) { row.querySelector('.a').textContent = t.title || t.name; if (t.artist) row.querySelector('.b').textContent = t.artist; }
+  updateNextUp();
+  store.set('last', { path: t.path, time: startAt || 0 });
+  if (autoplay) startPlayback();
+}
+
+async function startPlayback() {
+  if (cur < 0) { if (tracks.length) await loadTrack(order[pos = 0], false); else return pickFolder(); }
+  ensureAudioGraph();
+  wantPlay = true;
+  const my = ++seq;
+  platterTarget = 1;
+  document.body.classList.add('playing');
+  setPlayIcon(true);
+  const ok = await cueDown(my);
+  if (!ok || my !== seq) return;
+  audio.playbackRate = 1;
+  if (gainNode) { gainNode.gain.cancelScheduledValues(actx.currentTime); gainNode.gain.setValueAtTime(0, actx.currentTime); gainNode.gain.linearRampToValueAtTime(1, actx.currentTime + .25); }
+  try { await audio.play(); isPlaying = true; }
+  catch (e) { console.warn(e); toast('Çalmak için dokun'); stopPlayback(false); }
+}
+// "plak durması" efekti: hız düşerek sus
+async function vinylStop() {
+  if (!isPlaying) return;
+  const r0 = audio.playbackRate;
+  await tween(.32, k => { audio.playbackRate = Math.max(.25, lerp(r0, .3, k)); if (gainNode) gainNode.gain.value = 1 - k; });
+  audio.pause(); audio.playbackRate = 1;
+  if (gainNode) gainNode.gain.value = 1;
+  isPlaying = false;
+}
+async function stopPlayback(reset) {
+  wantPlay = false;
+  const my = ++seq;
+  document.body.classList.remove('playing');
+  setPlayIcon(false);
+  platterTarget = 0;
+  await vinylStop();
+  if (reset) audio.currentTime = 0;
+  saveLast();
+  if (my === seq) cueRest(my);
+}
+function togglePlay() { if (wantPlay) stopPlayback(false); else startPlayback(); }
+
+async function go(dir) {
+  if (!tracks.length) return;
+  const wasPlaying = wantPlay;
+  if (audio.currentTime > 4 && dir < 0) { seekTo(0); return; }
+  pos = (pos + dir + order.length) % order.length;
+  const my = ++seq;
+  if (wasPlaying) {
+    armMode = 'moving';
+    await vinylStop();
+    await liftTo(7, 160);
+    if (my !== seq) return;
+  }
+  await loadTrack(order[pos], false, 0);
+  if (wasPlaying && my === seq) startPlayback();
+}
+function onEnded() {
+  isPlaying = false;
+  if (orderMode === 'repeat1') { audio.currentTime = 0; startPlayback(); return; }
+  if (pos >= order.length - 1 && orderMode !== 'shuffle') { stopPlayback(true); return; }
+  wantPlay = true;
+  go(1);
+}
+audio.addEventListener('ended', onEnded);
+async function seekTo(t) {
+  if (!audio.duration) return;
+  audio.currentTime = clamp(t, 0, audio.duration - .2);
+  if (armMode === 'tracking') {
+    const my = seq; armMode = 'moving';
+    await liftTo(5, 120); await armTo(progressAngle(), 320); await liftTo(0, 160);
+    if (my === seq && wantPlay) armMode = 'tracking';
+  }
+}
+function saveLast() { if (cur >= 0) store.set('last', { path: tracks[cur].path, time: audio.currentTime || 0 }); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveLast(); });
+
+/* ---------- Media Session (kilit ekranı ve bildirim kontrolleri) ---------- */
+function updateMediaSession(t, tags) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: t.title || t.name, artist: t.artist || '', album: tags.album || 'Plakçı',
+    artwork: artUrl ? [{ src: artUrl, sizes: '512x512', type: tags.pic.type }] : [{ src: 'icon-512.png', sizes: '512x512', type: 'image/png' }]
+  });
+}
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession;
+  ms.setActionHandler('play', () => startPlayback());
+  ms.setActionHandler('pause', () => stopPlayback(false));
+  ms.setActionHandler('stop', () => stopPlayback(true));
+  ms.setActionHandler('previoustrack', () => go(-1));
+  ms.setActionHandler('nexttrack', () => go(1));
+  try { ms.setActionHandler('seekto', (d) => seekTo(d.seekTime)); } catch (e) {}
+}
+
+/* ===========================================================
+   ATMOSFER: gerçek saat + konum hava durumu (Open-Meteo)
+   =========================================================== */
+const PRESETS = {
+  night: { amb: [.13, .15, .23], extTint: [1, 1, 1], extBright: .5, night: 1, lamp: 1, day: 0, sat: .6 },
+  dawn:  { amb: [.66, .58, .62], extTint: [1.08, .82, .86], extBright: .78, night: .12, lamp: .45, day: .45, sat: .8 },
+  day:   { amb: [1, 1, 1], extTint: [1, 1, 1], extBright: 1, night: 0, lamp: 0, day: 1, sat: 1 },
+  dusk:  { amb: [.62, .48, .42], extTint: [1.18, .74, .56], extBright: .72, night: .18, lamp: .7, day: .5, sat: .85 }
+};
+const WX = {
+  clear: { label: 'Açık' },
+  cloud: { label: 'Bulutlu', cloud: 1 },
+  rain:  { label: 'Yağmur', rain: 1, wind: .25, cloud: 1 },
+  storm: { label: 'Fırtına', rain: 1.25, wind: .8, storm: 1, cloud: 1 },
+  snow:  { label: 'Kar', snow: 1, wind: .15, cloud: .8 },
+  fog:   { label: 'Sis', fog: 1, cloud: .7 },
+  wind:  { label: 'Rüzgâr', wind: 1, cloud: .3 }
+};
+const TIMES = { auto: 'Oto', dawn: 'Sabah', day: 'Gündüz', dusk: 'Akşam', night: 'Gece' };
+const atmo = {
+  timeMode: store.get('timeMode', 'auto'),
+  wxMode: store.get('wxMode', 'auto'),
+  live: store.get('live', null),     // {code, wind, temp, sunrise, sunset, at}
+  coords: store.get('coords', null),
+  cur: null, target: null, flash: 0, nextFlash: 3
+};
+const LAMP_COL = [1.0, .66, .36];
+
+function minutesOf(iso) { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); }
+function timeWeights() {
+  if (atmo.timeMode !== 'auto') return { [atmo.timeMode]: 1 };
+  const now = new Date(); const m = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  let sr = 6.75 * 60, ss = 18.5 * 60;
+  const lv = atmo.live;
+  if (lv && lv.sunrise && lv.sunset) { sr = minutesOf(lv.sunrise); ss = minutesOf(lv.sunset); }
+  const tri = (x, a, b, c) => x <= a || x >= c ? 0 : x < b ? (x - a) / (b - a) : (c - x) / (c - b);
+  const sm = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+  const dayness = sm(sr - 30, sr + 50, m) * (1 - sm(ss - 50, ss + 35, m));
+  const dawn = tri(m, sr - 70, sr + 5, sr + 80);
+  const dusk = tri(m, ss - 80, ss - 5, ss + 60);
+  const rest = Math.max(0, 1 - dawn - dusk);
+  return { day: dayness * rest, night: (1 - dayness) * rest, dawn, dusk };
+}
+function wxFromCode(code, wind) {
+  let w = 'clear';
+  if (code == null) w = 'clear';
+  else if (code >= 95) w = 'storm';
+  else if ((code >= 71 && code <= 77) || code === 85 || code === 86) w = 'snow';
+  else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) w = 'rain';
+  else if (code === 45 || code === 48) w = 'fog';
+  else if (code >= 2) w = 'cloud';
+  const o = Object.assign({}, WX[w]);
+  if (code >= 51 && code <= 57) o.rain = .55;           // çisenti
+  if (code === 2) o.cloud = .5;
+  const wf = clamp(((wind || 0) - 14) / 26, 0, 1);
+  o.wind = Math.max(o.wind || 0, wf);
+  return { key: w, o };
+}
+function computeTarget() {
+  const tw = timeWeights();
+  let sum = 0; for (const k in tw) sum += tw[k];
+  const u = { amb: [0, 0, 0], extTint: [0, 0, 0], extBright: 0, night: 0, lamp: 0, day: 0, sat: 0 };
+  for (const k in tw) {
+    const w = tw[k] / (sum || 1), p = PRESETS[k];
+    for (let i = 0; i < 3; i++) { u.amb[i] += p.amb[i] * w; u.extTint[i] += p.extTint[i] * w; }
+    u.extBright += p.extBright * w; u.night += p.night * w; u.lamp += p.lamp * w; u.day += p.day * w; u.sat += p.sat * w;
+  }
+  const wx = atmo.wxMode === 'auto'
+    ? (atmo.live ? wxFromCode(atmo.live.code, atmo.live.wind).o : WX.clear)
+    : WX[atmo.wxMode];
+  const ov = Math.max(wx.cloud || 0, (wx.rain || 0) * .9, (wx.snow || 0) * .8, wx.fog || 0);
+  u.day *= 1 - ov * .78;
+  u.sat *= 1 - ov * .42;
+  u.extBright *= 1 - ov * .22;
+  for (let i = 0; i < 3; i++) u.amb[i] *= 1 - ov * .16;
+  u.lamp = Math.max(u.lamp, ov * .3 * (1 - u.night));     // kapalı havada da lamba yanar
+  if (wx.snow) { u.extTint = [u.extTint[0] * .95, u.extTint[1], u.extTint[2] * 1.08]; u.extBright *= 1.12; }
+  u.rain = Math.min(1.3, wx.rain || 0); u.snow = wx.snow || 0; u.fog = wx.fog || 0; u.wind = wx.wind || 0; u.storm = wx.storm || 0;
+  atmo.target = u;
+  if (!atmo.cur) atmo.cur = JSON.parse(JSON.stringify(u));
+  updateAtmoUI();
+}
+function stepAtmo(dt) {
+  const c = atmo.cur, t = atmo.target; if (!c || !t) return;
+  const k = 1 - Math.exp(-dt * .9);
+  for (const key in t) {
+    if (Array.isArray(t[key])) for (let i = 0; i < 3; i++) c[key][i] += (t[key][i] - c[key][i]) * k;
+    else c[key] += (t[key] - c[key]) * k;
+  }
+  // şimşek
+  if (c.storm > .3) {
+    atmo.nextFlash -= dt;
+    if (atmo.nextFlash <= 0) { atmo.flashT = 0; atmo.nextFlash = 5 + Math.random() * 11; }
+  }
+  if (atmo.flashT != null) {
+    atmo.flashT += dt; const ft = atmo.flashT;
+    atmo.flash = (ft < .08 ? .55 : ft < .14 ? .05 : ft < .24 ? .8 * (1 - (ft - .14) / .1) : 0) * c.storm;
+    if (ft > .3) atmo.flashT = null;
+  } else atmo.flash = 0;
+}
+async function fetchWeather() {
+  if (atmo.wxMode !== 'auto' && atmo.timeMode !== 'auto') return;
+  const getPos = () => new Promise((res) => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3) }),
+      () => res(null), { maximumAge: 3 * 3600e3, timeout: 9000, enableHighAccuracy: false });
+  });
+  const pos2 = await getPos();
+  if (pos2) { atmo.coords = pos2; store.set('coords', pos2); }
+  const c = atmo.coords;
+  if (!c) { $('atmoInfo').textContent = 'Konum yok: saat bilgisi kullanılıyor'; return; }
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}` +
+      `&current=temperature_2m,weather_code,wind_speed_10m&daily=sunrise,sunset&timezone=auto&forecast_days=1`;
+    const r = await fetch(url, { cache: 'no-store' });
+    const j = await r.json();
+    atmo.live = {
+      code: j.current.weather_code, wind: j.current.wind_speed_10m, temp: j.current.temperature_2m,
+      sunrise: j.daily.sunrise[0], sunset: j.daily.sunset[0], at: Date.now()
+    };
+    store.set('live', atmo.live);
+    computeTarget();
+  } catch (e) { console.warn('hava', e); }
+}
+function updateAtmoUI() {
+  const lv = atmo.live;
+  const wxKey = atmo.wxMode === 'auto' ? (lv ? wxFromCode(lv.code, lv.wind).key : 'clear') : atmo.wxMode;
+  $('atmoName').textContent = (atmo.timeMode === 'auto' && atmo.wxMode === 'auto') ? 'Oto' :
+    [atmo.timeMode !== 'auto' ? TIMES[atmo.timeMode] : null, atmo.wxMode !== 'auto' ? WX[atmo.wxMode].label : null].filter(Boolean).join(' · ');
+  if (lv) $('atmoInfo').textContent = `Şu an ${Math.round(lv.temp)}°  ·  ${WX[wxKey].label}  ·  ` +
+    `gün doğumu ${lv.sunrise.slice(11, 16)}  ·  batımı ${lv.sunset.slice(11, 16)}`;
+  const mk = (box, items, active, onPick) => {
+    box.innerHTML = '';
+    for (const [k, label] of items) {
+      const b = document.createElement('button'); b.className = 'opt' + (k === active ? ' on' : ''); b.textContent = label;
+      b.onclick = () => onPick(k); box.appendChild(b);
+    }
+  };
+  mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); });
+  mk($('wxOpts'), [['auto', 'Oto'], ...Object.entries(WX).map(([k, v]) => [k, v.label])], atmo.wxMode,
+    (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'auto') fetchWeather(); });
+}
+
+/* ===========================================================
+   2D EFEKT KATMANI: visualizer + hava parçacıkları
+   =========================================================== */
+const fx = fxCanvas.getContext('2d');
+const VIZ = ['bokeh', 'wave', 'dust', 'off'];
+const VIZ_NAMES = { bokeh: 'Bokeh', wave: 'Dalga', dust: 'Toz', off: 'Kapalı' };
+let vizMode = store.get('viz', 'bokeh');
+const paneClip = (() => {
+  const p = new Path2D();
+  for (const poly of PANES.concat([PLANT])) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
+  return p;
+})();
+
+// önceden çizilmiş ışık sprite'ları (her karede gradient üretmemek için)
+function makeOrb(rgb, ring) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  const [r, gg, b] = rgb;
+  if (ring) {
+    g.addColorStop(0, `rgba(${r},${gg},${b},.55)`); g.addColorStop(.78, `rgba(${r},${gg},${b},.7)`);
+    g.addColorStop(.9, `rgba(${r},${gg},${b},.95)`); g.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  } else {
+    g.addColorStop(0, `rgba(${r},${gg},${b},1)`); g.addColorStop(.4, `rgba(${r},${gg},${b},.35)`); g.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+  }
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return c;
+}
+const ORB_DAY = [[255, 236, 190], [214, 240, 170], [255, 214, 150], [190, 236, 230]].map(c => makeOrb(c, true));
+const ORB_NIGHT = [[255, 190, 120], [255, 160, 95], [240, 210, 160], [120, 220, 210]].map(c => makeOrb(c, true));
+const GLOW = makeOrb([255, 220, 170], false);
+// yumuşak ışık huzmesi: bir kez bulanık çizilir, her karede sadece kopyalanır
+function makeBeam(night) {
+  const c = document.createElement('canvas'), k = .25;
+  c.width = STAGE_W * k; c.height = STAGE_H * k;
+  const x = c.getContext('2d');
+  x.scale(k, k); x.filter = 'blur(40px)';
+  const col = night ? '255,180,110' : '255,236,190';
+  const g = night ? x.createLinearGradient(0, 100, 900, 800) : x.createLinearGradient(1150, 0, 650, 948);
+  g.addColorStop(0, `rgba(${col},.22)`); g.addColorStop(1, `rgba(${col},0)`);
+  x.fillStyle = g; x.beginPath();
+  if (night) { x.moveTo(-60, 40); x.lineTo(-60, 420); x.lineTo(950, 1000); x.lineTo(1300, 760); }
+  else { x.moveTo(930, -40); x.lineTo(1230, -40); x.lineTo(1120, 990); x.lineTo(420, 990); }
+  x.closePath(); x.fill();
+  return c;
+}
+const BEAM_DAY = makeBeam(false), BEAM_NIGHT = makeBeam(true);
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+const orbs = Array.from({ length: 26 }, (_, i) => ({
+  x: rnd(120, 1450), y: rnd(20, 520), r: rnd(18, 52), band: i % BANDS, c: i % 4,
+  vx: rnd(-6, 6), vy: rnd(-4, 2), ph: rnd(0, 6.28)
+}));
+const dust = Array.from({ length: 90 }, () => ({ x: rnd(0, STAGE_W), y: rnd(0, STAGE_H), r: rnd(.7, 2.2), ph: rnd(0, 6.28), sp: rnd(.3, 1) }));
+const rain = Array.from({ length: 160 }, () => ({ x: rnd(100, 1260), y: rnd(-40, 440), l: rnd(14, 30), v: rnd(850, 1250) }));
+const snow = Array.from({ length: 140 }, () => ({ x: rnd(100, 1260), y: rnd(-20, 440), r: rnd(.8, 3.2), v: rnd(22, 60), ph: rnd(0, 6.28) }));
+const leaves = Array.from({ length: 10 }, () => ({ x: rnd(100, 1260), y: rnd(0, 420), r: rnd(3, 6), a: rnd(0, 6.28), v: rnd(.6, 1.4) }));
+const cityLights = Array.from({ length: 9 }, () => ({ x: rnd(170, 1200), y: rnd(150, 380), r: rnd(1.5, 3.5), ph: rnd(0, 6.28) }));
+
+let T = 0;
+function drawFX(dt) {
+  const c = atmo.cur || PRESETS.day;
+  const W = fxCanvas.width, H = fxCanvas.height, s = view.s * view.dpr;
+  fx.setTransform(1, 0, 0, 1, 0, 0);
+  fx.clearRect(0, 0, W, H);
+  fx.setTransform(s, 0, 0, s, view.tx * view.dpr, view.ty * view.dpr);
+  const night = c.night || 0, wind = c.wind || 0;
+
+  // ---- pencere dışı: yağmur, kar, rüzgarla uçan yapraklar, uzak ışıklar
+  const needOut = (c.rain > .02) || (c.snow > .02) || wind > .2 || night > .4;
+  if (needOut) {
+    fx.save(); fx.clip(paneClip, 'evenodd');
+    if (night > .4) {
+      fx.globalCompositeOperation = 'lighter';
+      for (const L of cityLights) {
+        const a = (night - .4) * 1.4 * (.6 + .4 * Math.sin(T * .7 + L.ph)) * (1 - (c.fog || 0) * .6);
+        fx.globalAlpha = clamp(a, 0, 1) * .55;
+        fx.drawImage(GLOW, L.x - L.r * 6, L.y - L.r * 6, L.r * 12, L.r * 12);
+      }
+      fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
+    }
+    if (c.rain > .02) {
+      const n = Math.floor(rain.length * Math.min(1, c.rain));
+      const ang = .12 + wind * .35;
+      fx.strokeStyle = night > .5 ? 'rgba(170,190,220,.22)' : 'rgba(235,240,245,.32)';
+      fx.lineWidth = 1.1; fx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const d = rain[i];
+        d.y += d.v * dt; d.x -= d.v * ang * dt;
+        if (d.y > 440) { d.y = rnd(-60, -10); d.x = rnd(100, 1400); }
+        if (d.x < 80) d.x += 1250;
+        fx.moveTo(d.x, d.y); fx.lineTo(d.x + d.l * ang, d.y - d.l);
+      }
+      fx.stroke();
+    }
+    if (c.snow > .02) {
+      fx.fillStyle = night > .5 ? 'rgba(200,210,235,.75)' : 'rgba(255,255,255,.9)';
+      const n = Math.floor(snow.length * Math.min(1, c.snow));
+      fx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const f = snow[i];
+        f.y += f.v * dt; f.x += (Math.sin(T * .8 + f.ph) * 12 - wind * 60) * dt;
+        if (f.y > 440) { f.y = -10; f.x = rnd(100, 1300); }
+        if (f.x < 90) f.x += 1180;
+        fx.moveTo(f.x + f.r, f.y); fx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+      }
+      fx.fill();
+    }
+    if (wind > .35 && !(c.snow > .3)) {
+      fx.fillStyle = night > .5 ? 'rgba(40,50,40,.6)' : 'rgba(120,140,60,.75)';
+      for (const L of leaves) {
+        L.x -= (90 + 160 * wind) * L.v * dt; L.y += Math.sin(T * 2 + L.a) * 30 * dt + 12 * dt; L.a += dt * 3 * L.v;
+        if (L.x < 100) { L.x = 1300; L.y = rnd(0, 400); }
+        fx.save(); fx.translate(L.x, L.y); fx.rotate(L.a); fx.globalAlpha = wind;
+        fx.beginPath(); fx.ellipse(0, 0, L.r, L.r * .45, 0, 0, Math.PI * 2); fx.fill(); fx.restore();
+      }
+      fx.globalAlpha = 1;
+    }
+    fx.restore();
+  }
+
+  // ---- müzik görselleri
+  if (vizMode === 'off') return;
+  const e = levels.energy, idle = .25;
+  fx.globalCompositeOperation = 'lighter';
+  if (vizMode === 'bokeh') {
+    const pal = night > .5 ? ORB_NIGHT : ORB_DAY;
+    for (const o of orbs) {
+      const b = bands[o.band];
+      o.x += (o.vx + wind * -20) * dt; o.y += (o.vy + Math.sin(T * .3 + o.ph) * 3) * dt;
+      if (o.x < 60) o.x = 1500; if (o.x > 1520) o.x = 80;
+      if (o.y < -40) o.y = 520; if (o.y > 560) o.y = -20;
+      const r = o.r * (.75 + b * 1.1 + Math.sin(T * .6 + o.ph) * .05);
+      fx.globalAlpha = clamp(.035 * idle * 4 + b * .42, 0, .55) * (1 - (c.fog || 0) * .4);
+      fx.drawImage(pal[o.c], o.x - r, o.y - r, r * 2, r * 2);
+    }
+  } else if (vizMode === 'wave') {
+    // pikabın önünden geçen ince ışık dalgaları
+    const lines = [[71, 211, 201], [233, 180, 111], [242, 235, 225]];
+    const baseY = 800;
+    for (let l = 0; l < 3; l++) {
+      fx.strokeStyle = `rgb(${lines[l].join(',')})`;
+      fx.lineWidth = l === 2 ? 1 : 1.6;
+      fx.globalAlpha = .26 + e * .6;
+      fx.beginPath();
+      for (let i = 0; i <= 72; i++) {
+        const x = 260 + i * 16.5;
+        const bi = Math.floor((i / 72) * (BANDS - 1));
+        const env = Math.sin(Math.PI * i / 72);
+        const amp = (6 + bands[bi] * 70 + levels.bass * 30 * (l === 0)) * env;
+        const y = baseY + l * 18 + Math.sin(i * .28 + T * (1.2 + l * .5) + l) * amp;
+        i ? fx.lineTo(x, y) : fx.moveTo(x, y);
+      }
+      fx.stroke();
+    }
+  } else if (vizMode === 'dust') {
+    // gündüz pencereden ışık huzmesi, gece lambadan
+    const isN = night > .5;
+    const col = isN ? '255,180,110' : '255,236,190';
+    fx.globalAlpha = clamp((.35 + levels.bass * 1.1) * (isN ? .75 : 1), 0, 1);
+    fx.drawImage(isN ? BEAM_NIGHT : BEAM_DAY, 0, 0, STAGE_W, STAGE_H);
+    fx.fillStyle = `rgba(${col},1)`;
+    for (const p of dust) {
+      const j = (levels.high * 26 + 1.5) * p.sp;
+      p.x += (Math.sin(T * .7 + p.ph) * 6 + (Math.random() - .5) * j * 6) * dt - wind * 10 * dt;
+      p.y += (Math.cos(T * .5 + p.ph) * 4 + 3 + (Math.random() - .5) * j * 6) * dt;
+      if (p.y > STAGE_H) p.y = 0; if (p.x < 0) p.x = STAGE_W; if (p.x > STAGE_W) p.x = 0;
+      fx.globalAlpha = clamp(.2 + levels.mid * .9 + Math.sin(T * 2 + p.ph) * .1, 0, 1) * .8;
+      fx.beginPath(); fx.arc(p.x, p.y, p.r * (1 + levels.bass * .8), 0, Math.PI * 2); fx.fill();
+    }
+  }
+  fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
+}
+
+/* ===========================================================
+   ANA DÖNGÜ
+   =========================================================== */
+let lastT = performance.now(), lastRender = 0, raf = 0, glReady = false;
+let lastSec = -1;
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
+  // boşta ve hareketsiz havada 30 fps yeter: pil dostu
+  const c = atmo.cur || {};
+  const busy = isPlaying || tweens.length || platterSpeed > .01 || c.rain > .02 || c.snow > .02 || c.wind > .2 || c.fog > .05 || vizMode !== 'off';
+  if (!busy && now - lastRender < 33) return;
+  const fdt = Math.min(.1, (now - lastRender) / 1000) || dt; lastRender = now;
+  T += fdt;
+  stepTweens(fdt);
+  stepAtmo(fdt);
+  readSpectrum(fdt);
+  platterSpeed += (platterTarget - platterSpeed) * (1 - Math.exp(-fdt * (platterTarget ? 2.6 : 1.4)));
+  rot += platterSpeed * (RPM / 60) * Math.PI * 2 * fdt;
+  if (armMode === 'tracking') armA += (progressAngle() - armA) * (1 - Math.exp(-fdt * 3));
+  // küçük titreşim: iğne bas ile hafifçe titrer
+  const jitter = isPlaying && vizMode !== 'off' ? levels.bass * .5 * Math.sin(T * 63) : 0;
+  if (glReady) drawGL(jitter);
+  drawFX(fdt);
+  // ilerleme çubuğu: sadece transform yazıyoruz (layout yok)
+  if (audio.duration) {
+    $('fill').style.transform = `scaleX(${audio.currentTime / audio.duration})`;
+    const sec = Math.floor(audio.currentTime);
+    if (sec !== lastSec) { lastSec = sec; $('tCur').textContent = fmt(sec); $('tDur').textContent = fmt(audio.duration); }
+  }
+}
+function fmt(s) { s = Math.floor(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function drawGL(jitter) {
+  const c = atmo.cur || PRESETS.day;
+  gl.viewport(0, 0, glCanvas.width, glCanvas.height);
+  gl.clearColor(13 / 255, 11 / 255, 10 / 255, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform4f(U.uView, view.s * view.dpr, view.tx * view.dpr, view.ty * view.dpr, 0);
+  gl.uniform2f(U.uRes, glCanvas.width, glCanvas.height);
+  gl.uniform1f(U.uT, T);
+  gl.uniform1f(U.uRot, rot % (Math.PI * 2));
+  gl.uniform1f(U.uArmA, armA);
+  gl.uniform1f(U.uArmLift, armLift + jitter);
+  gl.uniform1f(U.uKe, ARM.ke);
+  gl.uniform3fv(U.uAmb, c.amb); gl.uniform3fv(U.uExtTint, c.extTint); gl.uniform3fv(U.uLampCol, LAMP_COL);
+  gl.uniform1f(U.uExtBright, c.extBright); gl.uniform1f(U.uNight, c.night); gl.uniform1f(U.uLamp, c.lamp);
+  gl.uniform1f(U.uDay, c.day); gl.uniform1f(U.uSat, c.sat);
+  gl.uniform1f(U.uFog, c.fog || 0); gl.uniform1f(U.uRain, c.rain || 0); gl.uniform1f(U.uSnow, c.snow || 0);
+  gl.uniform1f(U.uWind, c.wind || 0); gl.uniform1f(U.uFlash, atmo.flash || 0);
+  gl.uniform1f(U.uPulse, vizMode !== 'off' ? levels.bass : 0);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+/* ===========================================================
+   ARAYÜZ
+   =========================================================== */
+function setPlayIcon(on) {
+  $('playIcon').innerHTML = on ? '<rect x="7" y="5.5" width="3.4" height="13" rx="1"/><rect x="13.6" y="5.5" width="3.4" height="13" rx="1"/>' : '<path d="M8 5.5v13l11-6.5z"/>';
+  $('play').setAttribute('aria-label', on ? 'Duraklat' : 'Çal');
+}
+let toastTimer;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1600);
+}
+function openSheet(id) { $(id).classList.add('on'); $('scrim').classList.add('on'); }
+function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('scrim').classList.remove('on'); }
+$('scrim').onclick = closeSheets;
+// tutamaca dokun ya da aşağı kaydır: kapat
+document.querySelectorAll('.sheet').forEach(sh => {
+  sh.querySelector('.grab').onclick = closeSheets;
+  let y0 = null;
+  sh.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
+  sh.addEventListener('touchend', (e) => {
+    if (y0 != null && e.changedTouches[0].clientY - y0 > 90 && !$('list').contains(e.target)) closeSheets();
+    y0 = null;
+  }, { passive: true });
+});
+
+// liste parça parça çizilir: binlerce şarkıda bile açılış hızlı kalır
+let listIdx = [], listShown = 0;
+const LIST_CHUNK = 120;
+function renderList(filter) {
+  const f = (filter || '').toLocaleLowerCase('tr');
+  listIdx = [];
+  tracks.forEach((t, i) => { if (!f || (t.title + ' ' + t.artist + ' ' + t.path).toLocaleLowerCase('tr').includes(f)) listIdx.push(i); });
+  listShown = 0;
+  $('list').replaceChildren();
+  appendList();
+}
+function appendList() {
+  const frag = document.createDocumentFragment();
+  const end = Math.min(listIdx.length, listShown + LIST_CHUNK);
+  for (let k = listShown; k < end; k++) {
+    const i = listIdx[k], t = tracks[i];
+    const b = document.createElement('button'); b.className = 'trk' + (i === cur ? ' cur' : ''); b.dataset.i = i;
+    b.innerHTML = `<span class="n">${i + 1}</span><span class="t"><div class="a"></div><div class="b"></div></span>`;
+    b.querySelector('.a').textContent = t.title || t.name;
+    b.querySelector('.b').textContent = t.artist || t.path.split('/').slice(-2, -1)[0] || '';
+    frag.appendChild(b);
+  }
+  listShown = end;
+  $('list').appendChild(frag);
+}
+$('list').addEventListener('scroll', (e) => {
+  const l = e.target;
+  if (listShown < listIdx.length && l.scrollTop + l.clientHeight > l.scrollHeight - 600) appendList();
+}, { passive: true });
+function markCurrent() {
+  const prev = $('list').querySelector('.trk.cur'); if (prev) prev.classList.remove('cur');
+  const now = $('list').querySelector(`.trk[data-i="${cur}"]`); if (now) now.classList.add('cur');
+}
+$('list').addEventListener('click', async (e) => {
+  const b = e.target.closest('.trk'); if (!b) return;
+  const i = +b.dataset.i; pos = order.indexOf(i);
+  closeSheets();
+  const was = wantPlay;
+  const my = ++seq;
+  if (was) { armMode = 'moving'; await vinylStop(); await liftTo(7, 160); if (my !== seq) return; }
+  await loadTrack(i, false, 0);
+  if (my === seq) startPlayback();
+});
+let searchTimer;
+$('search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => renderList(e.target.value), 140); });
+
+$('play').onclick = togglePlay;
+$('stop').onclick = () => stopPlayback(true);
+$('next').onclick = () => go(1);
+$('prev').onclick = () => go(-1);
+$('libBtn').onclick = () => openSheet('libSheet');
+$('pickBtn').onclick = pickFolder;
+$('changeDir').onclick = () => { closeSheets(); pickFolder(); };
+$('atmoBtn').onclick = () => { updateAtmoUI(); openSheet('atmoSheet'); };
+$('vizBtn').onclick = () => {
+  vizMode = VIZ[(VIZ.indexOf(vizMode) + 1) % VIZ.length];
+  store.set('viz', vizMode); $('vizName').textContent = VIZ_NAMES[vizMode]; toast(VIZ_NAMES[vizMode]);
+};
+const ORDER_NAMES = { linear: 'Düz', shuffle: 'Karışık', repeat1: 'Tekrar' };
+$('orderBtn').onclick = () => {
+  const keys = Object.keys(ORDER_NAMES);
+  orderMode = keys[(keys.indexOf(orderMode) + 1) % keys.length];
+  store.set('order', orderMode); $('orderName').textContent = ORDER_NAMES[orderMode];
+  const curIdx = order[pos]; buildOrder(); pos = Math.max(0, order.indexOf(curIdx)); updateNextUp();
+};
+
+// ilerleme çizgisinde sürükleyerek arama (rect sadece dokunuş başında okunur)
+(() => {
+  const g = $('groove'); let rect = null;
+  const at = (x) => clamp((x - rect.left) / rect.width, 0, 1) * (audio.duration || 0);
+  g.addEventListener('pointerdown', (e) => { rect = g.getBoundingClientRect(); g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerup', (e) => { if (rect) seekTo(at(e.clientX)); rect = null; });
+})();
+
+// sahne jestleri: plağa dokun = çal/durdur, yatay kaydır = parça değiştir
+(() => {
+  const h = $('hit'); let sx = 0, sy = 0, st = 0;
+  h.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; st = performance.now(); });
+  h.addEventListener('pointerup', (e) => {
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5 && performance.now() - st < 700) { go(dx < 0 ? 1 : -1); return; }
+    if (Math.hypot(dx, dy) < 12) {
+      const [x, y] = toStage(e.clientX, e.clientY);
+      const r = Math.hypot((x - REC.cx) / REC.rx, (y - REC.cy) / REC.ry);
+      if (r < 1.05) { if (!tracks.length) pickFolder(); else togglePlay(); }
+    }
+  });
+})();
+addEventListener('keydown', (e) => {
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (e.code === 'ArrowRight') go(1);
+  if (e.code === 'ArrowLeft') go(-1);
+});
+
+/* ===========================================================
+   BAŞLANGIÇ
+   =========================================================== */
+let resizeTimer;
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(computeView, 80); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+  else if (!raf) { lastT = lastRender = performance.now(); raf = requestAnimationFrame(frame); computeTarget(); }
+});
+
+(async function boot() {
+  computeView();
+  $('vizName').textContent = VIZ_NAMES[vizMode];
+  $('orderName').textContent = ORDER_NAMES[orderMode];
+  computeTarget();
+  try {
+    if (!glInit()) throw new Error('WebGL2 yok');
+    const [scene, maps, disc, sheen, arm] = await Promise.all(['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'].map(loadImg));
+    makeTex(0, 'uScene', scene, false);
+    makeTex(1, 'uMaps', maps, false);
+    makeTex(2, 'uDisc', disc, true);
+    makeTex(3, 'uSheen', sheen, false);
+    makeTex(4, 'uArm', arm, true);
+    drawLabel(null, null);
+    makeTex(5, 'uLabel', labelCanvas, true);
+    glReady = true;
+  } catch (e) {
+    console.error(e);
+    $('nogl').style.display = 'block';
+  }
+  raf = requestAnimationFrame(frame);
+  restoreLibrary();
+  fetchWeather();
+  setInterval(fetchWeather, 20 * 60e3);
+  setInterval(computeTarget, 30e3);
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js');
+})();
+</script>
+</body>
+</html>
