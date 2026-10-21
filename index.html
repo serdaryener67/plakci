@@ -90,7 +90,17 @@
   body.land .info{max-width:calc(var(--mid-x,50vw) - min(250px,20vw) - 48px)}
   body.land .controls{margin:2px 0 0}
   body.land #play{width:60px;height:60px}
-  body.land .chips{flex-direction:column;align-items:flex-end;gap:6px}
+  /* yatayda ayar düğmeleri sağ alttaki tek düğmenin içinde toplanır: masadaki fincan ve kozalak açık kalır */
+  body.land .chips{position:fixed;right:calc(22px + env(safe-area-inset-right));bottom:calc(74px + env(safe-area-inset-bottom));z-index:7;
+    flex-direction:column;align-items:flex-end;gap:6px;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .25s,transform .3s cubic-bezier(.2,.8,.2,1)}
+  body.land .chips.open{opacity:1;transform:none;pointer-events:auto}
+  body.land .chips .chip{background:rgba(13,11,10,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #moreBtn{display:none}
+  body.land #moreBtn{display:grid;position:fixed;right:calc(22px + env(safe-area-inset-right));bottom:calc(18px + env(safe-area-inset-bottom));z-index:7;
+    width:46px;height:46px;border-radius:50%;place-items:center;color:var(--ink);background:rgba(13,11,10,.45);
+    border:1px solid rgba(242,235,225,.16);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .25s}
+  body.land #moreBtn.on{transform:rotate(90deg);border-color:rgba(233,180,111,.5);color:var(--amber)}
+  #moreBtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
   body.land .chip{padding:7px 11px}
   body.land #empty{flex:1;text-align:left}
 
@@ -198,6 +208,7 @@
 <div id="nogl"></div>
 <div id="hit"></div>
 <div id="fade"></div>
+<button id="moreBtn" aria-label="Ayarlar"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
 <button id="fsBtn" aria-label="Tam ekran"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 
 <div id="panel">
@@ -228,7 +239,7 @@
     </div>
   </div>
 
-  <div class="chips">
+  <div class="chips" id="chips">
     <button class="chip" id="vizBtn">Görsel <b id="vizName">Bokeh</b></button>
     <button class="chip" id="vizMenuBtn" aria-label="Görsel menüsü">Görseller <b>▤</b></button>
     <button class="chip" id="atmoBtn">Atmosfer <b id="atmoName">Oto</b></button>
@@ -2565,11 +2576,11 @@ const TAP_BY_ID = Object.fromEntries(TAP_EFFECTS.map(e => [e.id, e]));
 // atanabilir tuşlar ve varsayılanlar (her tuş farklı)
 const TAP_TARGETS = [
   ['play', 'Çal'], ['stop', 'Durdur'], ['prev', 'Önceki'], ['next', 'Sonraki'], ['volBtn', 'Ses'], ['libBtn', 'Raf'],
-  ['fsBtn', 'Tam ekran'], ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['groove', 'İlerleme çubuğu'], ['record', 'Plak']
+  ['fsBtn', 'Tam ekran'], ['moreBtn', 'Ayarlar'], ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['groove', 'İlerleme çubuğu'], ['record', 'Plak']
 ];
 const TAP_DEFAULTS = {
   play: ['halo', '#e9b46f'], stop: ['shock', '#ff6b6b'], prev: ['sweep', '#47d3c9'], next: ['sparks', '#ffd166'],
-  fsBtn: ['halo', '#f2ebe1'], volBtn: ['pulse', '#47d3c9'], libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
+  fsBtn: ['halo', '#f2ebe1'], moreBtn: ['orbit', '#e9b46f'], volBtn: ['pulse', '#47d3c9'], libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
   orderBtn: ['spiral', '#7ee081'], groove: ['scatter', '#e9b46f'], tapBtn: ['prism', '#f2ebe1'], record: ['pulse', '#e9b46f']
 };
 let tapMap = Object.assign({}, TAP_DEFAULTS, store.get('tapMap', {}));
@@ -2776,6 +2787,18 @@ document.addEventListener('pointerup', function fsOnce(e) {
 }, true);
 if (!fsSupported) $('fsBtn').style.display = 'none';
 setFsIcon();
+
+/* ---------- yatay ekranda ayar menüsü (aç / kapa) ---------- */
+function setChips(open) {
+  $('chips').classList.toggle('open', open);
+  $('moreBtn').classList.toggle('on', open);
+}
+$('moreBtn').onclick = () => setChips(!$('chips').classList.contains('open'));
+// bir ayara basınca ya da dışarı dokununca menü kapanır
+$('chips').addEventListener('click', () => { if (document.body.classList.contains('land')) setTimeout(() => setChips(false), 150); });
+document.addEventListener('pointerdown', (e) => {
+  if ($('chips').classList.contains('open') && !$('chips').contains(e.target) && !$('moreBtn').contains(e.target)) setChips(false);
+}, true);
 
 /* ===========================================================
    ARAYÜZ
