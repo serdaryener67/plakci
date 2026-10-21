@@ -26,6 +26,9 @@
   canvas{position:fixed;left:0;top:0;width:100vw;height:100vh;display:block}
   #gl{z-index:0}
   #fx{z-index:1;pointer-events:none}
+  #tap{z-index:15;pointer-events:none}
+  .sw{width:30px;height:30px;border-radius:50%;border:2px solid transparent;box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
+  .sw.on{border-color:var(--ink)}
   #hit{position:fixed;inset:0;z-index:2;touch-action:none}
 
   /* sahnenin alt kenarını panele eriten geçiş (sadece dikey ekranda) */
@@ -82,7 +85,9 @@
     padding:0 calc(26px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left))}
   body.land .info{flex:1;min-width:0;min-height:0}
   body.land #title{font-size:21px;-webkit-line-clamp:1}
-  body.land .mid{flex:1.2;max-width:560px}
+  body.land .mid{position:absolute;left:var(--mid-x,50%);bottom:calc(14px + env(safe-area-inset-bottom));
+    width:min(500px,40vw);transform:translateX(-50%)}
+  body.land .info{max-width:calc(var(--mid-x,50vw) - min(250px,20vw) - 48px)}
   body.land .controls{margin:2px 0 0}
   body.land #play{width:60px;height:60px}
   body.land .chips{flex-direction:column;align-items:flex-end;gap:6px}
@@ -136,6 +141,7 @@
 <body class="empty">
 <canvas id="gl"></canvas>
 <canvas id="fx"></canvas>
+<canvas id="tap"></canvas>
 <div id="nogl"></div>
 <div id="hit"></div>
 <div id="fade"></div>
@@ -171,6 +177,7 @@
     <button class="chip" id="vizBtn">Görsel <b id="vizName">Bokeh</b></button>
     <button class="chip" id="atmoBtn">Atmosfer <b id="atmoName">Oto</b></button>
     <button class="chip player-only" id="orderBtn">Sıra <b id="orderName">Düz</b></button>
+    <button class="chip" id="tapBtn">Dokunuş <b>Efekt</b></button>
   </div>
 </div>
 
@@ -185,6 +192,21 @@
     <button class="chip" id="changeDir">Klasör</button>
   </div>
   <div id="list"></div>
+</section>
+
+<section class="sheet" id="tapSheet" aria-label="Dokunuş efektleri">
+  <div class="grab"></div>
+  <h3>Dokunuş efektleri</h3>
+  <div class="sub">Önce tuşu seç, sonra efekt ve renk ata</div>
+  <div style="overflow-y:auto;flex:1">
+    <div class="lbl">Tuş</div>
+    <div class="opts" id="tapTargets"></div>
+    <div class="lbl">Efekt</div>
+    <div class="opts" id="tapEffects"></div>
+    <div class="lbl">Renk</div>
+    <div class="opts" id="tapColors"></div>
+    <div class="opts"><button class="opt" id="tapAll">Bu efekti tüm tuşlara uygula</button><button class="opt" id="tapReset">Varsayılana dön</button></div>
+  </div>
 </section>
 
 <section class="sheet" id="atmoSheet" aria-label="Atmosfer">
@@ -264,7 +286,10 @@ function computeView() {
     view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
     view.ty = clamp(vh * 0.44 - 535 * view.s, vh - STAGE_H * view.s, 0);
   }
-  for (const c of [glCanvas, fxCanvas]) {
+  // yatay ekranda kontroller plağın merkezine hizalanır
+  const midX = clamp(view.tx + REC.cx * view.s, vw * .36, vw * .6);
+  document.documentElement.style.setProperty('--mid-x', midX + 'px');
+  for (const c of [glCanvas, fxCanvas, tapCanvas]) {
     c.width = Math.round(vw * view.dpr); c.height = Math.round(vh * view.dpr);
   }
 }
@@ -275,7 +300,7 @@ function toStage(clientX, clientY) {
 /* ===========================================================
    WEBGL SAHNE: arka plan + hava + ışık + plak + kol tek shader'da
    =========================================================== */
-const glCanvas = $('gl'), fxCanvas = $('fx');
+const glCanvas = $('gl'), fxCanvas = $('fx'), tapCanvas = $('tap');
 const gl = glCanvas.getContext('webgl2', { antialias: false, alpha: false, premultipliedAlpha: false, powerPreference: 'high-performance' });
 
 const VS = `#version 300 es
@@ -1251,6 +1276,286 @@ function drawGL(jitter) {
 }
 
 /* ===========================================================
+   DOKUNUŞ EFEKTLERİ: her tuşa atanabilen 15 kısa efekt
+   Ayrı bir canvas'ta çizilir, sadece efekt varken döngü çalışır
+   =========================================================== */
+const tapCtx = tapCanvas.getContext('2d');
+const TAP_COLORS = ['#e9b46f', '#47d3c9', '#ff6b6b', '#b28dff', '#7ee081', '#6fb7ff', '#ffd166', '#f2ebe1', '#ff8fd1'];
+const hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${clamp(a, 0, 1)})`;
+const TAU = Math.PI * 2;
+const outE = (k) => 1 - Math.pow(1 - k, 3);
+
+// her efekt: init(inst) rastgele durumu kurar, draw(ctx, k, inst) 0..1 arası çizer
+const TAP_EFFECTS = [
+  { id: 'halo', name: 'Hale', dur: 1.3,
+    draw(x, k, o) { // kenarı bulanık genişleyen ışık halkası
+      const r = o.r * (1 + outE(k) * 1.3), a = Math.pow(1 - k, 1.6);
+      x.shadowColor = rgba(o.c, a); x.shadowBlur = 26;
+      x.strokeStyle = rgba(o.c, a * .9); x.lineWidth = 7 * (1 - k) + 1;
+      x.beginPath(); x.arc(o.x, o.y, r, 0, TAU); x.stroke();
+      const g = x.createRadialGradient(o.x, o.y, 0, o.x, o.y, r);
+      g.addColorStop(0, rgba(o.c, a * .28)); g.addColorStop(1, rgba(o.c, 0));
+      x.shadowBlur = 0; x.fillStyle = g; x.beginPath(); x.arc(o.x, o.y, r, 0, TAU); x.fill();
+    } },
+  { id: 'pulse', name: 'Nabız', dur: 1.4,
+    draw(x, k, o) { // üç halka art arda
+      x.shadowColor = rgba(o.c, .8); x.shadowBlur = 14;
+      for (let i = 0; i < 3; i++) {
+        const kk = clamp((k - i * .16) / .68, 0, 1); if (kk <= 0 || kk >= 1) continue;
+        x.strokeStyle = rgba(o.c, (1 - kk) * .85); x.lineWidth = 2;
+        x.beginPath(); x.arc(o.x, o.y, o.r * (1 + outE(kk) * 1.6), 0, TAU); x.stroke();
+      }
+    } },
+  { id: 'sparks', name: 'Kıvılcım', dur: 1.1,
+    init(o) { o.p = Array.from({ length: 22 }, () => ({ a: Math.random() * TAU, v: rnd(140, 320) })); },
+    draw(x, k, o) {
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 8; x.lineCap = 'round';
+      const t = k * this.dur;
+      for (const p of o.p) {
+        const d = o.r * .6 + p.v * t * (1 - k * .45), tail = 18 * (1 - k);
+        const cx = Math.cos(p.a), cy = Math.sin(p.a), g = 70 * t * t;
+        x.strokeStyle = rgba(o.c, 1 - k); x.lineWidth = 2 * (1 - k) + .5;
+        x.beginPath(); x.moveTo(o.x + cx * d, o.y + cy * d + g); x.lineTo(o.x + cx * (d - tail), o.y + cy * (d - tail) + g * .9); x.stroke();
+      }
+    } },
+  { id: 'bokeh', name: 'Bokeh', dur: 1.8,
+    init(o) { o.p = Array.from({ length: 9 }, () => ({ a: Math.random() * TAU, d: rnd(.3, 1.6), s: rnd(.25, .6), v: rnd(20, 50) })); },
+    draw(x, k, o) {
+      for (const p of o.p) {
+        const px = o.x + Math.cos(p.a) * o.r * p.d * (1 + k * .5), py = o.y + Math.sin(p.a) * o.r * p.d - p.v * k * 1.6;
+        const rr = o.r * p.s * (.6 + k * .8), a = Math.sin(k * Math.PI) * .55;
+        const g = x.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0, rgba(o.c, a * .35)); g.addColorStop(.8, rgba(o.c, a * .55)); g.addColorStop(.92, rgba(o.c, a)); g.addColorStop(1, rgba(o.c, 0));
+        x.fillStyle = g; x.beginPath(); x.arc(px, py, rr, 0, TAU); x.fill();
+      }
+    } },
+  { id: 'ripple', name: 'Su halkası', dur: 1.7,
+    draw(x, k, o) { // yatık su halkaları
+      for (let i = 0; i < 4; i++) {
+        const kk = clamp((k - i * .12) / .7, 0, 1); if (kk <= 0 || kk >= 1) continue;
+        const r = o.r * (.8 + outE(kk) * 2.2);
+        x.strokeStyle = rgba(o.c, (1 - kk) * .6); x.lineWidth = 1.5;
+        x.beginPath(); x.ellipse(o.x, o.y, r, r * .45, 0, 0, TAU); x.stroke();
+      }
+    } },
+  { id: 'stars', name: 'Yıldız tozu', dur: 1.5,
+    init(o) { o.p = Array.from({ length: 18 }, () => ({ a: Math.random() * TAU, d: rnd(.7, 2.1), s: rnd(6, 12), ph: rnd(0, 1) })); },
+    draw(x, k, o) {
+      x.fillStyle = rgba(o.c, 1); x.shadowColor = rgba(o.c, 1); x.shadowBlur = 14;
+      for (const p of o.p) {
+        const tw = Math.sin(clamp((k - p.ph * .4) / .6, 0, 1) * Math.PI); if (tw <= 0) continue;
+        const px = o.x + Math.cos(p.a) * o.r * p.d, py = o.y + Math.sin(p.a) * o.r * p.d - k * 10, s = p.s * tw;
+        x.globalAlpha = tw; x.beginPath();
+        x.moveTo(px, py - s); x.lineTo(px + s * .22, py - s * .22); x.lineTo(px + s, py); x.lineTo(px + s * .22, py + s * .22);
+        x.lineTo(px, py + s); x.lineTo(px - s * .22, py + s * .22); x.lineTo(px - s, py); x.lineTo(px - s * .22, py - s * .22);
+        x.closePath(); x.fill();
+      }
+      x.globalAlpha = 1;
+    } },
+  { id: 'groove', name: 'Plak izi', dur: 1.5,
+    init(o) { o.p = Array.from({ length: 5 }, (_, i) => ({ rr: 1.15 + i * .2, a0: Math.random() * TAU, sp: rnd(3, 7) * (i % 2 ? 1 : -1) })); },
+    draw(x, k, o) { // plak yivleri gibi dönen yaylar
+      x.shadowColor = rgba(o.c, .9); x.shadowBlur = 10; x.lineCap = 'round';
+      for (const p of o.p) {
+        const a = p.a0 + p.sp * k, len = Math.sin(k * Math.PI) * 2.2;
+        x.strokeStyle = rgba(o.c, Math.sin(k * Math.PI) * .9); x.lineWidth = 1.6;
+        x.beginPath(); x.arc(o.x, o.y, o.r * p.rr, a, a + len); x.stroke();
+      }
+    } },
+  { id: 'sweep', name: 'Işık süpürme', dur: 1.2,
+    draw(x, k, o) { // halkanın etrafında dönen ışık kuyruğu
+      const head = -Math.PI / 2 + outE(k) * TAU * 1.25, r = o.r * 1.35, fade = Math.sin(k * Math.PI);
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 16; x.lineCap = 'round';
+      for (let i = 0; i < 14; i++) {
+        const a = head - i * .12;
+        x.strokeStyle = rgba(o.c, fade * (1 - i / 14)); x.lineWidth = 6 * (1 - i / 14) + 1;
+        x.beginPath(); x.arc(o.x, o.y, r, a - .13, a); x.stroke();
+      }
+    } },
+  { id: 'shock', name: 'Şok dalgası', dur: 1,
+    draw(x, k, o) {
+      if (k < .14) { x.fillStyle = rgba(o.c, (1 - k / .14) * .55); x.beginPath(); x.arc(o.x, o.y, o.r * 1.1, 0, TAU); x.fill(); }
+      const r = o.r * (1 + outE(k) * 3);
+      x.strokeStyle = rgba(o.c, (1 - k) * .95); x.lineWidth = 10 * (1 - k) + .5;
+      x.beginPath(); x.arc(o.x, o.y, r, 0, TAU); x.stroke();
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 30;
+      x.strokeStyle = rgba(o.c, (1 - k) * .35); x.lineWidth = 2;
+      x.beginPath(); x.arc(o.x, o.y, r * .82, 0, TAU); x.stroke();
+    } },
+  { id: 'smoke', name: 'Duman', dur: 2,
+    init(o) { o.p = Array.from({ length: 8 }, () => ({ a: Math.random() * TAU, d: rnd(.2, .9), v: rnd(15, 40), s: rnd(.7, 1.2) })); },
+    draw(x, k, o) {
+      for (const p of o.p) {
+        const px = o.x + Math.cos(p.a) * o.r * p.d * (1 + k), py = o.y + Math.sin(p.a) * o.r * p.d - p.v * k * 2;
+        const rr = o.r * p.s * (.6 + k * 1.4), a = Math.sin(k * Math.PI) * .5;
+        const g = x.createRadialGradient(px, py, 0, px, py, rr);
+        g.addColorStop(0, rgba(o.c, a)); g.addColorStop(1, rgba(o.c, 0));
+        x.fillStyle = g; x.beginPath(); x.arc(px, py, rr, 0, TAU); x.fill();
+      }
+    } },
+  { id: 'spiral', name: 'Sarmal', dur: 1.4,
+    draw(x, k, o) { // dışa açılan nokta sarmalı
+      x.fillStyle = rgba(o.c, 1); x.shadowColor = rgba(o.c, 1); x.shadowBlur = 8;
+      const n = 26;
+      for (let i = 0; i < n; i++) {
+        const f = i / n, a = f * TAU * 1.6 + k * 4, d = o.r * (.9 + f * 1.8 * outE(k));
+        x.globalAlpha = (1 - k) * (1 - f * .6);
+        x.beginPath(); x.arc(o.x + Math.cos(a) * d, o.y + Math.sin(a) * d, 2.4 * (1 - f * .5), 0, TAU); x.fill();
+      }
+      x.globalAlpha = 1;
+    } },
+  { id: 'embers', name: 'Kor', dur: 1.9,
+    init(o) { o.p = Array.from({ length: 26 }, () => ({ x: rnd(-1.1, 1.1), v: rnd(50, 130), w: rnd(0, TAU), s: rnd(2, 4.2) })); },
+    draw(x, k, o) { // yukarı süzülen titrek kor parçaları
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 16;
+      const t = k * this.dur;
+      for (const p of o.p) {
+        const px = o.x + p.x * o.r + Math.sin(t * 5 + p.w) * 6, py = o.y - p.v * t;
+        const fl = .6 + .4 * Math.sin(t * 22 + p.w);
+        x.fillStyle = rgba(o.c, (1 - k) * fl);
+        x.beginPath(); x.arc(px, py, p.s * (1 - k * .5), 0, TAU); x.fill();
+      }
+    } },
+  { id: 'prism', name: 'Prizma', dur: 1.3,
+    draw(x, k, o) { // kromatik kayma: üç renk halka
+      const r = o.r * (1 + outE(k) * 1.5), a = (1 - k) * .8, sp = 4 + k * 10;
+      x.lineWidth = 3 * (1 - k) + 1; x.shadowBlur = 12;
+      const cols = [[255, 70, 90], [70, 255, 160], [90, 140, 255]];
+      cols.forEach((cc, i) => {
+        const ang = i * TAU / 3 + k * 2;
+        x.shadowColor = rgba(cc, a); x.strokeStyle = rgba(cc, a);
+        x.beginPath(); x.arc(o.x + Math.cos(ang) * sp, o.y + Math.sin(ang) * sp, r, 0, TAU); x.stroke();
+      });
+      x.strokeStyle = rgba(o.c, a * .5); x.lineWidth = 1;
+      x.beginPath(); x.arc(o.x, o.y, r, 0, TAU); x.stroke();
+    } },
+  { id: 'drop', name: 'Damla', dur: 1.5,
+    init(o) { o.p = Array.from({ length: 12 }, () => ({ a: rnd(Math.PI * 1.05, Math.PI * 1.95), v: rnd(60, 150) })); },
+    draw(x, k, o) { // yukarıdan düşen damla, sıçrama ve halka
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 10;
+      if (k < .25) {
+        const kk = k / .25, y = o.y - o.r * 3 * (1 - kk * kk);
+        x.fillStyle = rgba(o.c, .95);
+        x.beginPath(); x.ellipse(o.x, y, 3.5, 6, 0, 0, TAU); x.fill();
+        return;
+      }
+      const kk = (k - .25) / .75, t = kk * this.dur * .75;
+      for (const p of o.p) {
+        const d = p.v * t, g = 260 * t * t;
+        x.fillStyle = rgba(o.c, 1 - kk);
+        x.beginPath(); x.arc(o.x + Math.cos(p.a) * d, o.y + Math.sin(p.a) * d + g, 2, 0, TAU); x.fill();
+      }
+      x.shadowBlur = 0;
+      x.strokeStyle = rgba(o.c, (1 - kk) * .7); x.lineWidth = 1.5;
+      const r = o.r * (.3 + outE(kk) * 2);
+      x.beginPath(); x.ellipse(o.x, o.y + 4, r, r * .35, 0, 0, TAU); x.stroke();
+    } },
+  { id: 'bolt', name: 'Şimşek', dur: 1,
+    init(o) {
+      o.p = Array.from({ length: 5 }, (_, i) => {
+        const a = i * TAU / 5 + rnd(-.3, .3), pts = [];
+        for (let j = 1; j <= 6; j++) pts.push([a + rnd(-.35, .35), j / 6]);
+        return pts;
+      });
+    },
+    draw(x, k, o) { // titreşen zikzak yıldırımlar
+      const fl = k < .5 ? (Math.sin(k * 90) > -.3 ? 1 : .3) : 1;
+      x.shadowColor = rgba(o.c, 1); x.shadowBlur = 18; x.lineJoin = 'round';
+      x.strokeStyle = rgba(o.c, (1 - k) * fl); x.lineWidth = 2.2 * (1 - k) + .6;
+      const len = o.r * (1.2 + outE(Math.min(1, k * 3)) * 1.6);
+      for (const pts of o.p) {
+        x.beginPath(); x.moveTo(o.x, o.y);
+        for (const [a, f] of pts) x.lineTo(o.x + Math.cos(a) * len * f, o.y + Math.sin(a) * len * f);
+        x.stroke();
+      }
+    } }
+];
+const TAP_BY_ID = Object.fromEntries(TAP_EFFECTS.map(e => [e.id, e]));
+
+// atanabilir tuşlar ve varsayılanlar (her tuş farklı)
+const TAP_TARGETS = [
+  ['play', 'Çal'], ['stop', 'Durdur'], ['prev', 'Önceki'], ['next', 'Sonraki'], ['libBtn', 'Raf'],
+  ['vizBtn', 'Görsel'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['record', 'Plak']
+];
+const TAP_DEFAULTS = {
+  play: ['halo', '#e9b46f'], stop: ['shock', '#ff6b6b'], prev: ['sweep', '#47d3c9'], next: ['sparks', '#ffd166'],
+  libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], atmoBtn: ['smoke', '#b28dff'],
+  orderBtn: ['spiral', '#7ee081'], tapBtn: ['prism', '#f2ebe1'], record: ['pulse', '#e9b46f']
+};
+let tapMap = Object.assign({}, TAP_DEFAULTS, store.get('tapMap', {}));
+const tapActive = [];
+let tapRaf = 0, tapLast = 0;
+
+function spawnTap(effectId, color, cx, cy, r) {
+  const e = TAP_BY_ID[effectId]; if (!e) return;
+  const o = { x: cx, y: cy, r: Math.max(14, r), c: hexRgb(color), t: 0, e };
+  if (e.init) e.init(o);
+  tapActive.push(o);
+  if (!tapRaf) { tapLast = performance.now(); tapRaf = requestAnimationFrame(tapFrame); }
+}
+function tapFrame(now) {
+  const dt = Math.min(.05, (now - tapLast) / 1000); tapLast = now;
+  const d = view.dpr;
+  tapCtx.setTransform(1, 0, 0, 1, 0, 0);
+  tapCtx.clearRect(0, 0, tapCanvas.width, tapCanvas.height);
+  tapCtx.setTransform(d, 0, 0, d, 0, 0);
+  tapCtx.globalCompositeOperation = 'lighter';
+  for (let i = tapActive.length - 1; i >= 0; i--) {
+    const o = tapActive[i]; o.t += dt;
+    const k = o.t / o.e.dur;
+    if (k >= 1) { tapActive.splice(i, 1); continue; }
+    tapCtx.save(); o.e.draw.call(o.e, tapCtx, k, o); tapCtx.restore();
+  }
+  tapRaf = tapActive.length ? requestAnimationFrame(tapFrame) : 0;
+  if (!tapRaf) { tapCtx.setTransform(1, 0, 0, 1, 0, 0); tapCtx.clearRect(0, 0, tapCanvas.width, tapCanvas.height); }
+}
+// tuşa basılınca: rect sadece dokunuş anında bir kez okunur
+function fireTap(target, el, x, y) {
+  const m = tapMap[target]; if (!m) return;
+  if (el) { const b = el.getBoundingClientRect(); spawnTap(m[0], m[1], b.left + b.width / 2, b.top + b.height / 2, Math.max(b.width, b.height) / 2); }
+  else spawnTap(m[0], m[1], x, y, 34);
+}
+for (const [id] of TAP_TARGETS) {
+  if (id === 'record') continue;
+  const el = $(id); if (el) el.addEventListener('pointerdown', () => fireTap(id, el));
+}
+
+// ---- efekt atama menüsü
+let tapSel = 'play';
+function renderTapUI() {
+  const mk = (box, items, isOn, onPick, cls) => {
+    box.innerHTML = '';
+    for (const [k, label] of items) {
+      const b = document.createElement('button'); b.className = (cls || 'opt') + (isOn(k) ? ' on' : '');
+      if (cls === 'sw') { b.style.background = k; b.setAttribute('aria-label', k); } else b.textContent = label;
+      b.addEventListener('click', () => onPick(k, b.getBoundingClientRect())); box.appendChild(b);
+    }
+  };
+  const cur = tapMap[tapSel];
+  mk($('tapTargets'), TAP_TARGETS, k => k === tapSel, (k) => { tapSel = k; renderTapUI(); });
+  mk($('tapEffects'), TAP_EFFECTS.map(e => [e.id, e.name]), k => k === cur[0], (k, b) => {
+    tapMap[tapSel] = [k, tapMap[tapSel][1]]; saveTap(); renderTapUI(); previewAt(b);
+  });
+  mk($('tapColors'), TAP_COLORS.map(c => [c, c]), k => k === cur[1], (k, b) => {
+    tapMap[tapSel] = [tapMap[tapSel][0], k]; saveTap(); renderTapUI(); previewAt(b);
+  }, 'sw');
+}
+function previewAt(b) {
+  // b: tıklanan tuşun konumu (liste yeniden çizilmeden önce okunur)
+  const m = tapMap[tapSel];
+  spawnTap(m[0], m[1], b.left + b.width / 2, b.top + b.height / 2, Math.max(28, b.height / 2 + 6));
+}
+function saveTap() { store.set('tapMap', tapMap); }
+$('tapBtn').onclick = () => { renderTapUI(); openSheet('tapSheet'); };
+$('tapAll').onclick = (e) => {
+  const m = tapMap[tapSel];
+  for (const [id] of TAP_TARGETS) tapMap[id] = [m[0], tapMap[id][1]];
+  saveTap(); renderTapUI(); previewAt(e.currentTarget.getBoundingClientRect()); toast('Tüm tuşlara uygulandı');
+};
+$('tapReset').onclick = (e) => { tapMap = Object.assign({}, TAP_DEFAULTS); saveTap(); renderTapUI(); previewAt(e.currentTarget.getBoundingClientRect()); };
+
+/* ===========================================================
    ARAYÜZ
    =========================================================== */
 function setPlayIcon(on) {
@@ -1360,7 +1665,7 @@ $('orderBtn').onclick = () => {
     if (Math.hypot(dx, dy) < 12) {
       const [x, y] = toStage(e.clientX, e.clientY);
       const r = Math.hypot((x - REC.cx) / REC.rx, (y - REC.cy) / REC.ry);
-      if (r < 1.05) { if (!tracks.length) pickFolder(); else togglePlay(); }
+      if (r < 1.05) { fireTap('record', null, e.clientX, e.clientY); if (!tracks.length) pickFolder(); else togglePlay(); }
     }
   });
 })();
