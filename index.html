@@ -76,20 +76,18 @@
   .btn{display:inline-block;padding:14px 26px;border:1px solid rgba(233,180,111,.55);border-radius:999px;
     color:var(--amber);letter-spacing:2.5px;font-size:11px;text-transform:uppercase}
 
-  /* ---- Yatay ekran: panel sahnenin üstünde ---- */
-  @media (orientation:landscape) and (max-height:620px){
-    #fade{top:auto;bottom:0;height:46vh;background:linear-gradient(to bottom, rgba(13,11,10,0), rgba(13,11,10,.86) 75%)}
-    #panel{top:auto;height:auto;flex-direction:row;align-items:flex-end;gap:22px;
-      padding:0 calc(26px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left))}
-    .info{flex:1;min-width:0;min-height:0}
-    #title{font-size:21px;-webkit-line-clamp:1}
-    .mid{flex:1.2}
-    .controls{margin:2px 0 0}
-    #play{width:60px;height:60px}
-    .chips{flex-direction:column;align-items:flex-end;gap:6px}
-    .chip{padding:7px 11px}
-    #empty{flex:1;text-align:left}
-  }
+  /* ---- Yatay ekran (telefon yatay, tablet, PC): panel sahnenin üstünde. body.land JS ile verilir ---- */
+  body.land #fade{top:auto;bottom:0;height:46vh;background:linear-gradient(to bottom, rgba(13,11,10,0), rgba(13,11,10,.86) 75%)}
+  body.land #panel{top:auto;height:auto;flex-direction:row;align-items:flex-end;gap:22px;
+    padding:0 calc(26px + env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) calc(26px + env(safe-area-inset-left))}
+  body.land .info{flex:1;min-width:0;min-height:0}
+  body.land #title{font-size:21px;-webkit-line-clamp:1}
+  body.land .mid{flex:1.2;max-width:560px}
+  body.land .controls{margin:2px 0 0}
+  body.land #play{width:60px;height:60px}
+  body.land .chips{flex-direction:column;align-items:flex-end;gap:6px}
+  body.land .chip{padding:7px 11px}
+  body.land #empty{flex:1;text-align:left}
 
   /* ---- Alt sayfalar (kütüphane / atmosfer) ---- */
   .scrim{position:fixed;inset:0;z-index:9;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .3s}
@@ -122,12 +120,10 @@
   .opt.on{border-color:rgba(233,180,111,.6);color:var(--amber)}
   .lbl{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:6px 22px 10px}
   /* yatay ekranda alt sayfa sağdan açılır (taban kurallardan sonra gelmeli) */
-  @media (orientation:landscape) and (max-height:620px){
-    .sheet{left:auto;top:0;width:min(440px,62vw);max-height:none;border-radius:22px 0 0 22px;
-      border-top:0;border-left:1px solid var(--faint);transform:translateX(105%);
-      padding-right:env(safe-area-inset-right)}
-    .sheet.on{transform:none}
-  }
+  body.land .sheet{left:auto;top:0;width:min(440px,62vw);max-height:none;border-radius:22px 0 0 22px;
+    border-top:0;border-left:1px solid var(--faint);transform:translateX(105%);
+    padding-right:env(safe-area-inset-right)}
+  body.land .sheet.on{transform:none}
 
   #toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:20;transform:translate(-50%,-8px);
     opacity:0;transition:opacity .35s, transform .35s;pointer-events:none;
@@ -255,6 +251,7 @@ function computeView() {
   view.dpr = Math.min(devicePixelRatio || 1, 2);
   view.w = vw; view.h = vh;
   view.portrait = vh > vw * 1.05;
+  document.body.classList.toggle('land', !view.portrait);
   if (view.portrait) {
     // dikey: pikap genişliği ekranı doldursun, sahne üstte
     view.s = Math.max(vw / 910, vh * .5 / STAGE_H);
