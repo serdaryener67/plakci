@@ -986,13 +986,16 @@ function nameToMeta(name) {
   const m = base.split(/\s+-\s+/);
   return m.length >= 2 ? { artist: m[0].trim(), title: m.slice(1).join(' - ').trim() } : { artist: '', title: base };
 }
-function setTracks(list) {
+function setTracks(list, noLoad) {
   list.sort((a, b) => a.path.localeCompare(b.path, 'tr', { numeric: true }));
-  tracks = list.map(t => Object.assign(t, nameToMeta(t.name)));
+  const known = new Map(tracks.map(t => [t.path, t]));
+  tracks = list.map(t => { const k = known.get(t.path); return Object.assign(t, nameToMeta(t.name), k ? { title: k.title, artist: k.artist } : {}); });
   buildOrder();
   renderList();
   document.body.classList.toggle('empty', !tracks.length);
   $('libInfo').textContent = tracks.length + ' parça' + (dirHandle ? '  ·  ' + dirHandle.name : '');
+  saveLibCache();
+  if (noLoad) return;
   if (tracks.length) {
     const last = store.get('last', null);
     let idx = last ? tracks.findIndex(t => t.path === last.path) : -1;
@@ -1017,7 +1020,7 @@ async function pickFolder() {
   if (hasDirPicker) {
     try {
       const h = await window.showDirectoryPicker({ id: 'music', mode: 'read', startIn: 'music' });
-      dirHandle = h;
+      dirHandle = h; needsAccess = false;
       await kv.set('dir', h);
       toast('Taranıyor');
       setTracks(await scanDir(h, '', []));
@@ -1030,12 +1033,52 @@ $('fileInput').addEventListener('change', (e) => {
   dirHandle = null;
   setTracks(files.map(f => ({ name: f.name, path: (f.webkitRelativePath || f.name), file: f })));
 });
+// Android izni sadece uygulama açıkken geçerli: açılışta klasöre dokunmuyoruz,
+// listeyi önbellekten gösteriyoruz; izin ilk çalmada (tek dokunuşla) isteniyor
+let needsAccess = false, cacheTimer = 0;
+function saveLibCache() {
+  clearTimeout(cacheTimer);
+  cacheTimer = setTimeout(() => {
+    if (!dirHandle || !tracks.length) return;
+    kv.set('libCache', { dir: dirHandle.name, items: tracks.map(t => ({ path: t.path, name: t.name, title: t.title, artist: t.artist })) }).catch(() => {});
+  }, 800);
+}
+async function ensureAccess() {
+  if (!needsAccess) return true;
+  try {
+    // ilk bekleme bu olmalı: dokunuşun izni geçerliyken istenir
+    if (await dirHandle.requestPermission({ mode: 'read' }) !== 'granted') { toast('Klasör izni gerekli'); return false; }
+    const curPath = tracks[cur] && tracks[cur].path;
+    setTracks(await scanDir(dirHandle, '', []), true);
+    cur = curPath ? tracks.findIndex(t => t.path === curPath) : -1;
+    pos = cur >= 0 ? order.indexOf(cur) : 0;
+    needsAccess = false;
+    return true;
+  } catch (e) { console.warn(e); toast('Klasör açılamadı'); return false; }
+}
 async function restoreLibrary() {
   if (!hasDirPicker) return;
   try {
     const h = await kv.get('dir');
     if (!h) return;
     dirHandle = h;
+    const cache = await kv.get('libCache');
+    if (cache && cache.items && cache.items.length) {
+      tracks = cache.items.map(t => Object.assign({}, t));
+      needsAccess = true;
+      buildOrder(); renderList();
+      document.body.classList.remove('empty');
+      $('libInfo').textContent = tracks.length + ' parça  ·  ' + cache.dir;
+      const last = store.get('last', null);
+      let idx = last ? tracks.findIndex(t => t.path === last.path) : -1;
+      if (idx < 0) idx = 0;
+      cur = idx; pos = order.indexOf(idx);
+      const t = tracks[idx];
+      $('title').textContent = t.title || t.name;
+      $('artist').textContent = t.artist || '\u00a0';
+      drawLabel(t, null); markCurrent(); updateNextUp();
+      return;
+    }
     const perm = await h.queryPermission({ mode: 'read' });
     if (perm === 'granted') setTracks(await scanDir(h, '', []));
     else {
@@ -1163,6 +1206,7 @@ async function loadTrack(idx, autoplay, startAt) {
   const tags = await readTags(file);
   if (tags.title) t.title = tags.title;
   if (tags.artist) t.artist = tags.artist;
+  if (tags.title || tags.artist) saveLibCache();
   $('title').textContent = t.title || t.name;
   $('artist').textContent = [t.artist, tags.album].filter(Boolean).join('  ·  ') || ' ';
   let art = null;
@@ -1181,6 +1225,8 @@ async function loadTrack(idx, autoplay, startAt) {
 }
 
 async function startPlayback() {
+  if (needsAccess && !(await ensureAccess())) return;
+  if (!audio.src && cur >= 0) { const last = store.get('last', null); await loadTrack(cur, false, last && tracks[cur] && last.path === tracks[cur].path ? last.time : 0); }
   if (cur < 0) { if (tracks.length) await loadTrack(order[pos = 0], false); else return pickFolder(); }
   ensureAudioGraph();
   wantPlay = true;
@@ -1237,6 +1283,7 @@ function togglePlay() { if (wantPlay) pausePlayback(); else startPlayback(); }
 
 async function go(dir) {
   if (!tracks.length) return;
+  if (needsAccess && !(await ensureAccess())) return;
   const wasPlaying = wantPlay;
   if (audio.currentTime > 4 && dir < 0) { seekTo(0); return; }
   pos = (pos + dir + order.length) % order.length;
@@ -2756,7 +2803,10 @@ function markCurrent() {
 }
 $('list').addEventListener('click', async (e) => {
   const b = e.target.closest('.trk'); if (!b) return;
-  const i = +b.dataset.i; pos = order.indexOf(i);
+  const path = tracks[+b.dataset.i].path;
+  if (needsAccess && !(await ensureAccess())) return;
+  const i = tracks.findIndex(t => t.path === path); if (i < 0) return;
+  pos = order.indexOf(i);
   closeSheets();
   const was = wantPlay;
   const my = ++seq;
