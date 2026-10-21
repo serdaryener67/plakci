@@ -786,7 +786,15 @@ async function armTo(angle, ms) { const a0 = armA; await tween(ms / 1000, k => a
 async function liftTo(px, ms) { const l0 = armLift; await tween(ms / 1000, k => armLift = lerp(l0, px, k)); }
 
 async function cueDown(myseq) {
+  const fromPause = armMode === 'paused';
   armMode = 'moving';
+  if (fromPause) {
+    // duraklatmadan dönüş: kol zaten plağın üstünde, sadece iner
+    await armTo(progressAngle(), 220); if (myseq !== seq) return false;
+    await liftTo(0, 280); if (myseq !== seq) return false;
+    armMode = 'tracking';
+    return true;
+  }
   await liftTo(7, 220); if (myseq !== seq) return false;
   await armTo(progressAngle(), 900); if (myseq !== seq) return false;
   await liftTo(0, 380); if (myseq !== seq) return false;
@@ -867,7 +875,25 @@ async function stopPlayback(reset) {
   saveLast();
   if (my === seq) cueRest(my);
 }
-function togglePlay() { if (wantPlay) stopPlayback(false); else startPlayback(); }
+// duraklat: ses susar, iğne plağın üstünde hafifçe kalkık bekler, tabla dönmeye devam eder
+async function pausePlayback() {
+  if (!wantPlay && !isPlaying) return;
+  wantPlay = false;
+  const my = ++seq;
+  document.body.classList.remove('playing');
+  setPlayIcon(false);
+  if (isPlaying) {
+    await tween(.15, k => { if (gainNode) gainNode.gain.value = 1 - k; });
+    audio.pause(); if (gainNode) gainNode.gain.value = 1;
+    isPlaying = false;
+  }
+  saveLast();
+  if (my !== seq) return;
+  armMode = 'moving';
+  await liftTo(6, 260);
+  if (my === seq) armMode = 'paused';
+}
+function togglePlay() { if (wantPlay) pausePlayback(); else startPlayback(); }
 
 async function go(dir) {
   if (!tracks.length) return;
@@ -883,6 +909,7 @@ async function go(dir) {
   }
   await loadTrack(order[pos], false, 0);
   if (wasPlaying && my === seq) startPlayback();
+  else if (armMode === 'paused') armTo(progressAngle(), 400);
 }
 function onEnded() {
   isPlaying = false;
@@ -895,6 +922,7 @@ audio.addEventListener('ended', onEnded);
 async function seekTo(t) {
   if (!audio.duration) return;
   audio.currentTime = clamp(t, 0, audio.duration - .2);
+  if (armMode === 'paused') { armTo(progressAngle(), 300); return; }
   if (armMode === 'tracking') {
     const my = seq; armMode = 'moving';
     await liftTo(5, 120); await armTo(progressAngle(), 320); await liftTo(0, 160);
@@ -915,7 +943,7 @@ function updateMediaSession(t, tags) {
 if ('mediaSession' in navigator) {
   const ms = navigator.mediaSession;
   ms.setActionHandler('play', () => startPlayback());
-  ms.setActionHandler('pause', () => stopPlayback(false));
+  ms.setActionHandler('pause', () => pausePlayback());
   ms.setActionHandler('stop', () => stopPlayback(true));
   ms.setActionHandler('previoustrack', () => go(-1));
   ms.setActionHandler('nexttrack', () => go(1));
@@ -1072,8 +1100,8 @@ function updateAtmoUI() {
    =========================================================== */
 const fx = fxCanvas.getContext('2d');
 const VIZ_LIST = [
-  ['bokeh', 'Bokeh'], ['wave', 'Dalga'], ['dust', 'Toz'], ['aurora', 'Aurora'], ['fireflies', 'Ateş böceği'],
-  ['rays', 'Huzme'], ['aura', 'Aura'], ['notes', 'Notalar'], ['stars', 'Takımyıldız'], ['pulse', 'Işık nabzı'],
+  ['bokeh', 'Bokeh'], ['wave', 'Dalga'], ['dust', 'Toz'], ['leaves', 'Yaprak ışığı'], ['fireflies', 'Ateş böceği'],
+  ['rays', 'Huzme'], ['aura', 'Aura'], ['notes', 'Notalar'], ['outline', 'Işık çizgisi'], ['pulse', 'Işık nabzı'],
   ['sky', 'Gökyüzü'], ['wings', 'Kanatlar'], ['glints', 'Plak parıltısı'], ['mirror', 'Cam'], ['haze', 'Pus'], ['off', 'Kapalı']
 ];
 const VIZ = VIZ_LIST.map(v => v[0]);
@@ -1209,16 +1237,6 @@ const vizTeal = [90, 220, 210];
 const rgbaV = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a < 0 ? 0 : a > 1 ? 1 : a})`;
 const wrapA = (a) => { a = (a + Math.PI) % TAU2; if (a < 0) a += TAU2; return a - Math.PI; };
 
-// aurora perdesi: alt kenarı keskin ve parlak, yukarı doğru renk değiştirip söner
-function makeCurtain(bottom, top) {
-  const c = document.createElement('canvas'); c.width = 4; c.height = 256;
-  const x = c.getContext('2d'), g = x.createLinearGradient(0, 256, 0, 0);
-  g.addColorStop(0, rgbaV(bottom, 0)); g.addColorStop(.03, rgbaV(bottom, 1)); g.addColorStop(.22, rgbaV(bottom, .6));
-  g.addColorStop(.55, rgbaV(top, .32)); g.addColorStop(1, rgbaV(top, 0));
-  x.fillStyle = g; x.fillRect(0, 0, 4, 256); return c;
-}
-const CURTAIN_NIGHT = [makeCurtain([90, 255, 170], [190, 90, 255]), makeCurtain([60, 230, 220], [90, 110, 255])];
-const CURTAIN_DAY = [makeCurtain([10, 215, 125], [120, 40, 200]), makeCurtain([0, 180, 175], [40, 90, 210])];
 // yukarıdan genişleyen bulanık ışın sprite'ı
 function makeRay(rgb) {
   const c = document.createElement('canvas'); c.width = 160; c.height = 512;
@@ -1247,20 +1265,94 @@ const STAR_DAY = makeStar([255, 255, 250]), STAR_NIGHT = makeStar([255, 214, 160
 const PUFF_DAY = makeOrb([255, 232, 196], false), PUFF_NIGHT = makeOrb([235, 180, 150], false);
 
 const flies = Array.from({ length: 30 }, () => ({ x: rnd(100, 1550), y: rnd(40, 820), ph: rnd(0, 6.28), f: rnd(.6, 1.6), sp: rnd(10, 26), a: rnd(0, 6.28) }));
-const nodes = Array.from({ length: 24 }, (_, i) => ({ x: rnd(170, 1200), y: rnd(20, 400), vx: rnd(-8, 8), vy: rnd(-6, 6), b: i % BANDS }));
 const vizNotes = [];
 const skyStars = Array.from({ length: 46 }, () => ({ x: rnd(150, 1220), y: rnd(5, 260), r: rnd(.5, 1.5), ph: rnd(0, 6.28) }));
 const shooting = [], birds = [], glares = [];
 let birdCool = 0, glowS = 0;
 const butterflies = [[255, 160, 50], [250, 248, 238], [110, 180, 255], [255, 205, 80]].map(col => ({ cx: rnd(450, 1200), cy: rnd(150, 520), ph: rnd(0, 6.28), col, s: rnd(13, 18) }));
-const moths = Array.from({ length: 7 }, () => ({ a: rnd(0, 6.28), r: rnd(22, 85), sp: rnd(1.8, 3.6) * (Math.random() < .5 ? 1 : -1), ph: rnd(0, 6.28), s: rnd(4, 6) }));
 const glintArr = Array.from({ length: 30 }, () => ({ a: rnd(0, 6.28), r: rnd(.42, .97), ph: rnd(0, 6.28), s: rnd(.6, 1.3) }));
 const puffs = Array.from({ length: 12 }, (_, i) => ({ x: rnd(-100, 1700), y: rnd(470, 800), w: rnd(280, 560), h: rnd(70, 150), v: rnd(8, 22) * (i % 2 ? 1 : -1), b: i % BANDS, ph: rnd(0, 6.28) }));
+// martı silueti: hilal kanatlar, f = kanat konumu (-1 aşağı, 1 yukarı)
+function drawGull(x, y, s, f, dir) {
+  fx.save(); fx.translate(x, y); fx.scale(dir, 1);
+  const tip = -f * s * .75, elbow = -f * s * .3 - s * .14;
+  fx.fillStyle = 'rgb(34,38,40)';
+  fx.beginPath();
+  fx.moveTo(-s * .1, -s * .02);
+  fx.quadraticCurveTo(-s * .38, elbow - s * .18, -s * .62, elbow);   // sol kanat üst kenar, dirsek
+  fx.quadraticCurveTo(-s * .82, elbow + (tip - elbow) * .4, -s, tip); // kanat ucu
+  fx.quadraticCurveTo(-s * .72, elbow + s * .2, -s * .52, elbow + s * .14);
+  fx.quadraticCurveTo(-s * .28, elbow + s * .1, -s * .08, s * .1);    // alt kenar gövdeye
+  fx.quadraticCurveTo(0, s * .2, s * .08, s * .1);                    // gövde
+  fx.quadraticCurveTo(s * .28, elbow + s * .1, s * .52, elbow + s * .14);
+  fx.quadraticCurveTo(s * .72, elbow + s * .2, s, tip);
+  fx.quadraticCurveTo(s * .82, elbow + (tip - elbow) * .4, s * .62, elbow);
+  fx.quadraticCurveTo(s * .38, elbow - s * .18, s * .1, -s * .02);
+  fx.quadraticCurveTo(0, -s * .12, -s * .1, -s * .02);                 // baş
+  fx.fill();
+  fx.restore();
+}
+const lanterns = [];
+// ay diski: hafif krater lekeli
+const MOON = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 104;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(44, 44, 4, 52, 52, 52);
+  g.addColorStop(0, '#fbf8ee'); g.addColorStop(.85, '#e4e0d2'); g.addColorStop(1, 'rgba(228,224,210,0)');
+  x.fillStyle = g; x.beginPath(); x.arc(52, 52, 50, 0, Math.PI * 2); x.fill();
+  x.fillStyle = 'rgba(150,145,135,.22)';
+  for (const [cx, cy, r] of [[38, 40, 9], [62, 58, 12], [58, 30, 6], [36, 66, 7], [70, 42, 5]]) { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); }
+  return c;
+})();
+const CLOUD_N = (() => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96;
+  const x = c.getContext('2d'); x.filter = 'blur(12px)'; x.fillStyle = 'rgba(30,36,55,.9)';
+  for (const [cx, cy, rx, ry] of [[80, 50, 60, 18], [140, 44, 70, 22], [190, 54, 50, 15]]) { x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); }
+  return c;
+})();
+const moonClouds = [{ x: 900, y: 100, w: 220, h: 70, v: 9 }, { x: 1180, y: 70, w: 180, h: 55, v: 6 }];
+// pikabın hatları (sahne koordinatları): üst yüzey, ön yüz, plak çevresi
+function mkPath(pts, heads, closed) {
+  if (closed) pts = pts.concat([pts[0]]);
+  const len = [0];
+  for (let i = 1; i < pts.length; i++) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return { pts, len, total: len[len.length - 1], heads };
+}
+function pathAt(path, u) {
+  u = ((u % 1) + 1) % 1;
+  const d = u * path.total; let i = 1;
+  while (i < path.len.length - 1 && path.len[i] < d) i++;
+  const a = path.pts[i - 1], b = path.pts[i], t = (d - path.len[i - 1]) / ((path.len[i] - path.len[i - 1]) || 1);
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+const OUTLINE_PATHS = [
+  mkPath([[522, 506], [1215, 506], [1301, 668], [448, 668]], 2, true),
+  mkPath([[448, 674], [1302, 674], [1302, 850], [448, 850]], 2, true),
+  mkPath(Array.from({ length: 64 }, (_, i) => { const a = i / 64 * Math.PI * 2; return [REC.cx + Math.cos(a) * (REC.rx + 3), REC.cy + Math.sin(a) * (REC.ry + 2)]; }), 3, true)
+];
+let outlineT = 0;
+// benekli güneş lekesi sprite'ı: kenarı yumuşak ama belirgin
+const SPOT = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,240,205,1)'); g.addColorStop(.62, 'rgba(255,236,195,.85)'); g.addColorStop(1, 'rgba(255,230,190,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c;
+})();
+// lekelerin düştüğü yüzeyler: pikabın üstü, pervaz, ön yüz, masa
+const SPOT_AREAS = [[530, 510, 1200, 660, .45], [150, 418, 1230, 470, .4], [460, 690, 1290, 840, .9], [0, 760, 440, 948, .4], [1310, 640, 1659, 948, .4]];
+const spots = Array.from({ length: 56 }, (_, i) => {
+  const A = SPOT_AREAS[i % SPOT_AREAS.length];
+  return { x: rnd(A[0], A[2]), y: rnd(A[1], A[3]), k: A[4], r: rnd(6, 20), f: rnd(.6, 2.2), ph: rnd(0, 6.28), b: i % BANDS };
+});
+const candlePools = [
+  { x: 800, y: 590, w: 900, h: 260, a: .38, ph: 0 }, { x: 870, y: 760, w: 1000, h: 220, a: .3, ph: 2 },
+  { x: 600, y: 440, w: 900, h: 120, a: .26, ph: 4 }, { x: 1150, y: 640, w: 500, h: 200, a: .26, ph: 1 }
+];
 
 // gündüz ve gece farklı davranan modların adları da değişir
 function vizLabel(id) {
   const n = ((atmo.target || atmo.cur || {}).night || 0) > .5;
-  const ctx = { fireflies: n ? 'Ateş böceği' : 'Polen', sky: n ? 'Kayan yıldız' : 'Kuşlar', wings: n ? 'Pervaneler' : 'Kelebekler', mirror: n ? 'Cam yansıması' : 'Cam parıltısı' };
+  const ctx = { fireflies: n ? 'Ateş böceği' : 'Polen', sky: n ? 'Kayan yıldız' : 'Martılar', wings: n ? 'Uçan fenerler' : 'Kelebekler', mirror: n ? 'Ay ışığı' : 'Cam parıltısı', leaves: n ? 'Mum ışığı' : 'Yaprak ışığı', outline: n ? 'Neon çizgi' : 'Işık çizgisi' };
   return ctx[id] || VIZ_NAMES[id];
 }
 
@@ -1308,30 +1400,6 @@ const VIZ_DRAW = {
       fx.globalAlpha = clamp(.2 + levels.mid * .9 + Math.sin(T * 2 + p.ph) * .1, 0, 1) * .8;
       fx.beginPath(); fx.arc(p.x, p.y, p.r * (1 + levels.bass * .8), 0, TAU2); fx.fill();
     }
-  },
-  // Aurora: keskin alt kenarlı, dikey ışınlı, kıvrılan perdeler
-  aurora(dt, c, night) {
-    const day = 1 - night;
-    fx.save(); fx.clip(paneClip, 'evenodd');
-    if (day > .3) { // gündüz: camın ardını hafifçe koyulaştır, perde seçilsin
-      fx.globalCompositeOperation = 'source-over';
-      fx.globalAlpha = .2 * day; fx.fillStyle = '#081820'; fx.fillRect(140, 0, 1090, 432);
-      fx.globalCompositeOperation = 'lighter';
-    }
-    const set = night > .5 ? CURTAIN_NIGHT : CURTAIN_DAY;
-    for (let l = 0; l < 2; l++) {
-      const amp = 22 + levels.mid * 70, h = 170 + bands[3 + l * 6] * 230;
-      const base = (l ? .55 : 1) * (.22 + levels.energy * .75) * (day > .5 ? 1.45 : 1);
-      for (let x = 146; x < 1226; x += 5) {
-        const fold = Math.sin(x * .005 + T * (.22 + l * .1) + l * 2.3) * amp + Math.sin(x * .019 - T * .45 + l) * 12 + Math.sin(x * .05 + T * 1.2) * 3;
-        const yB = 300 - l * 70 + fold;
-        const ray = .4 + .6 * Math.pow(Math.abs(Math.sin(x * .085 + T * .7 + Math.sin(x * .011 + T * .25) * 3)), 3);
-        const shimmer = .82 + .18 * Math.sin(T * 5 + x * .27);
-        fx.globalAlpha = clamp(base * ray * shimmer, 0, 1);
-        fx.drawImage(set[l], x, yB - h, 5, h);
-      }
-    }
-    fx.restore();
   },
   // Polen (gündüz) / Ateş böceği (gece)
   fireflies(dt, c, night, wind) {
@@ -1398,28 +1466,6 @@ const VIZ_DRAW = {
       fx.fillText(n.g, n.x + Math.sin(n.t * 2 + n.w) * 14, n.y - k * 200);
     }
   },
-  // Takımyıldız: camda müzikle birbirine bağlanan ışık noktaları
-  stars(dt) {
-    fx.save(); fx.clip(paneClip, 'evenodd');
-    for (const p of nodes) {
-      p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.x < 160 || p.x > 1210) p.vx *= -1; if (p.y < 10 || p.y > 410) p.vy *= -1;
-    }
-    const e = levels.energy, lim = 120 + e * 160;
-    fx.lineWidth = 1;
-    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
-      const a = nodes[i], b = nodes[j], d = Math.hypot(a.x - b.x, a.y - b.y);
-      if (d > lim) continue;
-      fx.strokeStyle = rgbaV([230, 240, 255], (1 - d / lim) * (.08 + e * .7));
-      fx.beginPath(); fx.moveTo(a.x, a.y); fx.lineTo(b.x, b.y); fx.stroke();
-    }
-    fx.fillStyle = 'rgb(240,245,255)';
-    for (const p of nodes) {
-      fx.globalAlpha = .3 + bands[p.b] * .7;
-      fx.beginPath(); fx.arc(p.x, p.y, 1.5 + bands[p.b] * 3, 0, TAU2); fx.fill();
-    }
-    fx.restore();
-  },
   // Işık nabzı: odanın kendi ışığı müzikle atar (gündüz güneş lekeleri, gece lamba)
   pulse(dt) {
     const target = isPlaying ? levels.bass : 0;
@@ -1449,43 +1495,58 @@ const VIZ_DRAW = {
         }
       }
     } else {
+      // gündüz: uzaktan geçen martı siluetleri; kanat çırpar, arada süzülür
       birdCool -= dt;
       if ((levels.beat || Math.random() < dt * .25) && birdCool <= 0) {
-        birdCool = rnd(3, 6);
-        const n = 3 + (Math.random() * 5 | 0), y0 = rnd(40, 230), dir = Math.random() < .5 ? 1 : -1, sp = rnd(170, 250);
-        for (let i = 0; i < n; i++) birds.push({ x: dir > 0 ? 100 - i * rnd(18, 42) : 1270 + i * rnd(18, 42), y: y0 + rnd(-28, 28), dir, sp: sp * rnd(.9, 1.1), s: rnd(5, 9), ph: rnd(0, 6.28) });
+        birdCool = rnd(4, 7);
+        const n = 2 + (Math.random() * 5 | 0), y0 = rnd(50, 220), dir = Math.random() < .5 ? 1 : -1, sp = rnd(120, 180), depth = rnd(.7, 1.15);
+        for (let i = 0; i < n; i++) {
+          const d = depth * rnd(.85, 1.1);
+          birds.push({ x: dir > 0 ? 90 - i * rnd(26, 50) : 1280 + i * rnd(26, 50), y: y0 + (i % 2 ? 1 : -1) * i * rnd(6, 12), dir, sp: sp * d, s: 11 * d, ph: rnd(0, 6.28), d });
+        }
       }
       fx.globalCompositeOperation = 'source-over';
-      fx.strokeStyle = 'rgba(28,30,28,.72)'; fx.lineWidth = 1.7; fx.lineJoin = 'round'; fx.lineCap = 'round';
-      const fs = 9 + levels.energy * 12;
+      const fs = 7 + levels.energy * 8;
       for (let i = birds.length - 1; i >= 0; i--) {
         const b = birds[i];
-        b.x += b.dir * b.sp * dt; b.y += Math.sin(T * 2 + b.ph) * 10 * dt;
-        if (b.x < -60 || b.x > 1400) { birds.splice(i, 1); continue; }
-        const f = Math.sin(T * fs + b.ph), s = b.s;
-        fx.beginPath();
-        fx.moveTo(b.x - s, b.y - f * s * .7); fx.quadraticCurveTo(b.x - s * .4, b.y - s * .25, b.x, b.y);
-        fx.quadraticCurveTo(b.x + s * .4, b.y - s * .25, b.x + s, b.y - f * s * .7); fx.stroke();
+        b.x += b.dir * b.sp * dt; b.y += Math.sin(T * 1.4 + b.ph) * 6 * dt;
+        if (b.x < -80 || b.x > 1420) { birds.splice(i, 1); continue; }
+        // döngünün bir kısmı süzülme: kanatlar hafif yukarıda sabit
+        const cyc = (T * .35 + b.ph) % 1, f = cyc < .55 ? Math.sin(T * fs + b.ph) : .25;
+        fx.globalAlpha = .55 + b.d * .3;
+        drawGull(b.x, b.y, b.s, f, b.dir);
       }
       fx.globalCompositeOperation = 'lighter';
     }
     fx.restore();
   },
-  // Kelebekler (gündüz) / lambaya üşüşen pervaneler (gece)
-  wings(dt, c, night) {
+  // Kelebekler (gündüz) / Uçan fenerler (gece)
+  wings(dt, c, night, wind) {
     const e = levels.energy;
     if (night > .5) {
-      const lx = 1250, ly = 230;
-      fx.globalAlpha = .1 + levels.bass * .35; fx.drawImage(GLOW, lx - 90, ly - 90, 180, 180);
-      fx.globalCompositeOperation = 'source-over';
-      for (const m of moths) {
-        m.a += m.sp * dt * (1 + e * 1.5) + (Math.random() - .5) * dt * 4;
-        const rr = m.r * (1 + .25 * Math.sin(T * 1.7 + m.ph)), x = lx + Math.cos(m.a) * rr, y = ly + Math.sin(m.a) * rr * .7;
-        const open = Math.abs(Math.sin(T * 30 + m.ph));
-        fx.globalAlpha = .75; fx.fillStyle = 'rgb(222,212,192)';
-        fx.beginPath(); fx.ellipse(x - m.s * .45 * open, y, m.s * .5 * open + .4, m.s * .35, -.3, 0, TAU2);
-        fx.ellipse(x + m.s * .45 * open, y, m.s * .5 * open + .4, m.s * .35, .3, 0, TAU2); fx.fill();
+      // pencerenin ardında süzülerek yükselen kâğıt fenerler
+      if (lanterns.length < 18 && Math.random() < dt * (1.1 + e * 3))
+        lanterns.push({ x: rnd(180, 1200), y: 450, d: rnd(.45, 1), ph: rnd(0, 6.28), t: 0 });
+      fx.save(); fx.clip(paneClip, 'evenodd');
+      const vis = 1 - (c.fog || 0) * .5;
+      for (let i = lanterns.length - 1; i >= 0; i--) {
+        const L = lanterns[i]; L.t += dt;
+        L.y -= (14 + L.d * 18) * dt; L.x += (Math.sin(T * .4 + L.ph) * 5 - wind * 20) * L.d * dt;
+        if (L.y < -30) { lanterns.splice(i, 1); continue; }
+        const fl = .75 + .25 * Math.sin(T * 7 + L.ph) * Math.sin(T * 3.1 + L.ph * 2) + levels.high * .8;
+        const s = 7 + L.d * 12, fadeIn = Math.min(1, L.t / 1.5), fadeOut = clamp(L.y / 60, 0, 1);
+        const a = fadeIn * fadeOut * vis;
+        fx.globalCompositeOperation = 'lighter';
+        fx.globalAlpha = clamp(.28 * fl * a, 0, .6); fx.drawImage(GLOW, L.x - s * 3, L.y - s * 3, s * 6, s * 6);
+        fx.globalAlpha = clamp(.9 * a, 0, 1);
+        const g = fx.createLinearGradient(0, L.y - s, 0, L.y + s);
+        g.addColorStop(0, 'rgba(255,150,70,1)'); g.addColorStop(1, `rgba(255,${200 + fl * 40 | 0},120,1)`);
+        fx.fillStyle = g;
+        fx.beginPath(); fx.moveTo(L.x - s * .45, L.y - s * .9); fx.lineTo(L.x + s * .45, L.y - s * .9);
+        fx.quadraticCurveTo(L.x + s * .62, L.y, L.x + s * .38, L.y + s * .75); fx.lineTo(L.x - s * .38, L.y + s * .75);
+        fx.quadraticCurveTo(L.x - s * .62, L.y, L.x - s * .45, L.y - s * .9); fx.fill();
       }
+      fx.restore();
     } else {
       fx.globalCompositeOperation = 'source-over';
       for (const b of butterflies) {
@@ -1518,22 +1579,25 @@ const VIZ_DRAW = {
       fx.drawImage(spr, x - sz, y - sz, sz * 2, sz * 2);
     }
   },
-  // Cam parıltısı (gündüz: camdan kayan ışık) / Cam yansıması (gece: cam ayna olur)
+  // Cam parıltısı (gündüz: camdan kayan ışık) / Ay ışığı (gece: pencerede nefes alan ay)
   mirror(dt, c, night) {
     fx.save(); fx.clip(paneClip, 'evenodd');
     if (night > .5) {
-      const K = REC.ry / REC.rx, my = 2 * 428 - REC.cy + 30;
-      fx.globalAlpha = .07 + levels.bass * .3;
-      fx.drawImage(ORB_NIGHT[3], REC.cx - REC.rx * .95, my - REC.ry * .8, REC.rx * 1.9, REC.ry * 1.6);
-      fx.lineWidth = 1.2;
-      for (let i = 0; i < 5; i++) {
-        const r = REC.rx * (.45 + i * .12);
-        fx.strokeStyle = rgbaV(vizTeal, .05 + bands[i * 4] * .4);
-        fx.beginPath(); fx.ellipse(REC.cx, my, r, r * K * .8, 0, -rot + i, -rot + i + 1.4); fx.stroke();
+      const mx = 1090, my = 92, vis = (1 - (c.fog || 0) * .6) * (1 - Math.min(1, c.rain || 0) * .5);
+      // hale ve ay tacı
+      fx.globalAlpha = (.14 + levels.bass * .38) * vis; fx.drawImage(GLOW, mx - 150, my - 150, 300, 300);
+      fx.globalAlpha = (.03 + levels.mid * .14) * vis; fx.strokeStyle = 'rgb(200,215,255)'; fx.lineWidth = 10;
+      fx.beginPath(); fx.arc(mx, my, 66 + levels.bass * 8, 0, TAU2); fx.stroke();
+      // ay diski
+      fx.globalCompositeOperation = 'source-over';
+      fx.globalAlpha = .95 * vis; fx.drawImage(MOON, mx - 26, my - 26, 52, 52);
+      // önünden geçen ince bulutlar
+      fx.globalAlpha = .55 * vis;
+      for (const cl of moonClouds) {
+        cl.x += cl.v * dt; if (cl.x > 1300) cl.x = 760;
+        fx.drawImage(CLOUD_N, cl.x - cl.w / 2, cl.y - cl.h / 2, cl.w, cl.h);
       }
-      for (const [lx, ly, bi] of [[1150, 150, 8], [300, 110, 14], [640, 60, 20], [930, 230, 4]]) {
-        fx.globalAlpha = .08 + bands[bi] * .6; fx.drawImage(GLOW, lx - 40, ly - 40, 80, 80);
-      }
+      fx.globalCompositeOperation = 'lighter';
     } else {
       if (levels.beat && glares.length < 2) glares.push({ t: 0, x0: rnd(-150, 150), w: rnd(50, 110) });
       for (let i = glares.length - 1; i >= 0; i--) {
@@ -1559,6 +1623,53 @@ const VIZ_DRAW = {
       fx.globalAlpha = clamp(.08 + b * .3 + levels.bass * .12, 0, .5);
       const w = p.w * (1 + b * .3);
       fx.drawImage(spr, p.x - w / 2, p.y - p.h / 2 + Math.sin(T * .4 + p.ph) * 10, w, p.h);
+    }
+  },
+  // Işık çizgisi: pikabın hatlarında dolaşan ışık kuyrukları (gündüz altın, gece neon)
+  outline(dt, c, night) {
+    const isN = night > .5, col = isN ? [80, 245, 230] : [255, 214, 150], col2 = isN ? [255, 110, 200] : [255, 245, 220];
+    const e = levels.energy;
+    outlineT += dt * (.06 + e * .22);
+    fx.shadowBlur = 16;
+    fx.lineJoin = 'round'; fx.lineCap = 'round';
+    // soluk taban hat
+    fx.shadowColor = rgbaV(col, 1);
+    fx.strokeStyle = rgbaV(col, .14 + levels.bass * .35); fx.lineWidth = 1.6;
+    for (const path of OUTLINE_PATHS) { fx.beginPath(); path.pts.forEach((p, i) => i ? fx.lineTo(p[0], p[1]) : fx.moveTo(p[0], p[1])); fx.stroke(); }
+    // hatlarda dolaşan kuyruklu ışıklar
+    OUTLINE_PATHS.forEach((path, pi) => {
+      for (let h = 0; h < path.heads; h++) {
+        const u0 = (outlineT * (pi % 2 ? -1 : 1) + h / path.heads + pi * .17) % 1;
+        const cc = h % 2 ? col2 : col;
+        fx.shadowColor = rgbaV(cc, 1);
+        let prev = pathAt(path, u0);
+        for (let j = 1; j < 18; j++) {
+          const p = pathAt(path, u0 - j * .006 * (pi % 2 ? -1 : 1));
+          fx.strokeStyle = rgbaV(cc, (1 - j / 18) * (.7 + e * .8)); fx.lineWidth = 4.5 * (1 - j / 18) + .8;
+          fx.beginPath(); fx.moveTo(prev[0], prev[1]); fx.lineTo(p[0], p[1]); fx.stroke();
+          prev = p;
+        }
+      }
+    });
+    fx.shadowBlur = 0;
+  },
+  // Yaprak ışığı (gündüz: ağaçlardan süzülen benekli güneş) / Mum ışığı (gece: titreyen sıcak ışık havuzları)
+  leaves(dt, c, night, wind) {
+    if (night > .5) {
+      for (const p of candlePools) {
+        const fl = .7 + .18 * Math.sin(T * 9 + p.ph) * Math.sin(T * 13.7 + p.ph * 2) + .12 * Math.sin(T * 2.3 + p.ph) + levels.high * .6 + levels.bass * .3;
+        fx.globalAlpha = clamp(p.a * fl, 0, .75);
+        fx.drawImage(PUFF_NIGHT, p.x - p.w / 2, p.y - p.h / 2, p.w, p.h);
+      }
+      return;
+    }
+    const sunny = clamp((c.day || 0) * 1.3, .25, 1);
+    for (const s of spots) {
+      const sway = Math.sin(T * (.6 + wind) + s.ph) * (5 + wind * 14) + Math.sin(T * 9 + s.ph) * levels.bass * 3;
+      const flick = Math.max(0, Math.sin(T * s.f + s.ph) * .6 + .4 + bands[s.b] * .8);
+      fx.globalAlpha = clamp(flick * .6 * sunny, 0, .85);
+      const r = s.r * 1.3 * (1 + bands[s.b] * .3);
+      fx.drawImage(SPOT, s.x + sway - r, s.y - r * s.k, r * 2, r * 2 * s.k);
     }
   }
 };
