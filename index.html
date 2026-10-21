@@ -1557,12 +1557,41 @@ const VIZ_LIST = [
   ['bokeh', 'Bokeh'], ['wave', 'Dalga'], ['dust', 'Toz'], ['leaves', 'Yaprak ışığı'], ['fireflies', 'Ateş böceği'],
   ['rays', 'Huzme'], ['aura', 'Aura'], ['notes', 'Notalar'], ['pulse', 'Işık nabzı'], ['sky', 'Gökyüzü'],
   ['wings', 'Kanatlar'], ['glints', 'Plak parıltısı'], ['mirror', 'Cam'], ['haze', 'Pus'],
-  ['breath', 'Buğu'], ['seeds', 'Karahindiba'], ['breeze', 'Esinti'], ['prism', 'Gökkuşağı'], ['off', 'Kapalı']
+  ['breath', 'Buğu'], ['seeds', 'Karahindiba'], ['breeze', 'Esinti'], ['prism', 'Gökkuşağı'], ['auto', 'Oto'], ['off', 'Kapalı']
 ];
 const VIZ = VIZ_LIST.map(v => v[0]);
 const VIZ_NAMES = Object.fromEntries(VIZ_LIST);
 let vizMode = store.get('viz', 'bokeh');
 if (!VIZ.includes(vizMode)) vizMode = 'bokeh';
+// vizRun: o an gerçekten çizilen efekt (Oto modunda 30 sn'de bir değişir)
+const VIZ_AUTO_SEC = 30;
+const autoViz = { list: [], i: 0, t: 0, fade: 1, target: 1 };
+function nextAutoViz() {
+  if (!autoViz.list.length || autoViz.i >= autoViz.list.length) {
+    // karışık sıra; bir tur bitmeden aynı efekt tekrar gelmez
+    autoViz.list = VIZ.filter(v => v !== 'auto' && v !== 'off');
+    for (let i = autoViz.list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [autoViz.list[i], autoViz.list[j]] = [autoViz.list[j], autoViz.list[i]]; }
+    if (autoViz.list[0] === vizRun && autoViz.list.length > 1) autoViz.list.push(autoViz.list.shift());
+    autoViz.i = 0;
+  }
+  return autoViz.list[autoViz.i++];
+}
+let vizRun = vizMode === 'auto' ? 'bokeh' : vizMode;
+if (vizMode === 'auto') vizRun = nextAutoViz();
+function stepAutoViz(dt) {
+  if (vizMode !== 'auto') { autoViz.fade = autoViz.target = 1; return; }
+  autoViz.t += dt;
+  if (autoViz.t >= VIZ_AUTO_SEC && autoViz.target === 1) autoViz.target = 0;     // önce yavaşça sön
+  autoViz.fade += (autoViz.target - autoViz.fade) * Math.min(1, dt * 2.2);
+  if (autoViz.target === 0 && autoViz.fade < .03) {                              // sonra yenisi belirsin
+    vizRun = nextAutoViz(); autoViz.t = 0; autoViz.target = 1;
+    $('vizName').textContent = vizLabel('auto');
+  }
+}
+// efektlerin kendi saydamlıkları, geçişteki sönme ile çarpılır
+const GA_DESC = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
+let vizMul = 1;
+Object.defineProperty(fx, 'globalAlpha', { get() { return GA_DESC.get.call(this); }, set(v) { GA_DESC.set.call(this, v * vizMul); } });
 const paneClip = (() => {
   const p = new Path2D();
   for (const poly of PANES.concat([PLANT])) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
@@ -1676,11 +1705,13 @@ function drawFX(dt) {
   }
 
   // ---- müzik görselleri
-  if (vizMode === 'off') return;
+  if (vizRun === 'off') return;
   fx.globalCompositeOperation = 'lighter';
+  vizMul = autoViz.fade;
   fx.globalAlpha = 1;
-  const fn = VIZ_DRAW[vizMode];
+  const fn = VIZ_DRAW[vizRun];
   if (fn) fn(dt, c, night, wind);
+  vizMul = 1;
   fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
   fx.lineCap = 'butt'; fx.shadowBlur = 0;
 }
@@ -1843,6 +1874,7 @@ const VIZ_DUAL = {
   mirror: ['Cam parıltısı', 'Ay ışığı'], leaves: ['Yaprak ışığı', 'Mum ışığı'], prism: ['Gökkuşağı', 'Şömine']
 };
 function vizLabel(id) {
+  if (id === 'auto') return 'Oto · ' + vizLabel(vizRun);
   const n = ((atmo.target || atmo.cur || {}).night || 0) > .5;
   const ctx = VIZ_DUAL[id]; if (ctx) return n ? ctx[1] : ctx[0];
   return VIZ_NAMES[id];
@@ -2248,7 +2280,7 @@ function frame(now) {
   const dt = Math.min(.1, (now - lastT) / 1000); lastT = now;
   // boşta ve hareketsiz havada 30 fps yeter: pil dostu
   const c = atmo.cur || {};
-  const busy = isPlaying || tweens.length || atmo.tt < ATMO_DUR || (atmo.cur && atmo.cur.coffee > .01) || platterSpeed > .01 || c.rain > .02 || c.snow > .02 || c.wind > .2 || c.fog > .05 || vizMode !== 'off';
+  const busy = isPlaying || tweens.length || atmo.tt < ATMO_DUR || (atmo.cur && atmo.cur.coffee > .01) || platterSpeed > .01 || c.rain > .02 || c.snow > .02 || c.wind > .2 || c.fog > .05 || vizRun !== 'off';
   if (!busy && now - lastRender < 33) return;
   const fdt = Math.min(.1, (now - lastRender) / 1000) || dt; lastRender = now;
   T += fdt;
@@ -2261,14 +2293,15 @@ function frame(now) {
   rot += platterSpeed * (RPM / 60) * Math.PI * 2 * fdt;
   if (armMode === 'tracking') armA += (progressAngle() - armA) * (1 - Math.exp(-fdt * 3));
   // küçük titreşim: iğne bas ile hafifçe titrer
-  const jitter = isPlaying && vizMode !== 'off' ? levels.bass * .07 * Math.sin(T * 47) : 0;
+  const jitter = isPlaying && vizRun !== 'off' ? levels.bass * .07 * Math.sin(T * 47) : 0;
   // mum titremesi: hızlı küçük kıpırtı + yavaş nefes + müzik
   const cTarget = .72 + .16 * Math.sin(T * 7.3) * Math.sin(T * 3.7 + 1) + .1 * Math.sin(T * 1.3) + (Math.random() - .5) * .12 + levels.high * .35 + levels.bass * .2;
   candleF += (cTarget - candleF) * Math.min(1, fdt * 14);
   // esinti: perde salınımının şiddeti
-  const kTarget = vizMode === 'breeze' ? .45 + levels.energy * .7 : 0;
+  const kTarget = vizRun === 'breeze' ? (.45 + levels.energy * .7) * autoViz.fade : 0;
   curtainS += (kTarget - curtainS) * Math.min(1, fdt * .8);
   stepCam(rdt);
+  stepAutoViz(rdt);
   if (glReady) drawGL(jitter);
   drawFX(fdt);
   // ilerleme çubuğu: sadece transform yazıyoruz (layout yok)
@@ -2290,7 +2323,7 @@ function drawGL(jitter) {
   gl.uniform1f(U.uArmA, armA);
   gl.uniform1f(U.uArmLift, armLift + jitter);
   gl.uniform1f(U.uKe, ARM.ke);
-  if (vizMode !== 'sky' || c.night > .5) cloudShade *= .95;
+  if (vizRun !== 'sky' || c.night > .5) cloudShade *= .95;
   const cs = cloudShade;
   gl.uniform3f(U.uAmb, c.amb[0] * (1 - cs * .2), c.amb[1] * (1 - cs * .18), c.amb[2] * (1 - cs * .1));
   gl.uniform3fv(U.uExtTint, c.extTint); gl.uniform3fv(U.uLampCol, LAMP_COL);
@@ -2298,13 +2331,14 @@ function drawGL(jitter) {
   gl.uniform1f(U.uDay, c.day * (1 - cs * .85)); gl.uniform1f(U.uSat, c.sat * (1 - cs * .3));
   gl.uniform1f(U.uFog, c.fog || 0); gl.uniform1f(U.uRain, c.rain || 0); gl.uniform1f(U.uSnow, c.snow || 0);
   gl.uniform1f(U.uWind, c.wind || 0); gl.uniform1f(U.uFlash, atmo.flash || 0);
-  gl.uniform1f(U.uPulse, vizMode !== 'off' ? levels.bass : 0);
-  gl.uniform1f(U.uGlow, vizMode === 'pulse' ? glowS : 0);
-  gl.uniform1f(U.uCandle, vizMode === 'leaves' ? candleF * clamp((c.night - .5) * 2.5, 0, 1) : 0);
+  const vf = autoViz.fade;
+  gl.uniform1f(U.uPulse, vizRun !== 'off' ? levels.bass : 0);
+  gl.uniform1f(U.uGlow, vizRun === 'pulse' ? glowS * vf : 0);
+  gl.uniform1f(U.uCandle, vizRun === 'leaves' ? candleF * clamp((c.night - .5) * 2.5, 0, 1) * vf : 0);
   gl.uniform1f(U.uCurtain, curtainS);
   gl.uniform1f(U.uCoffee, (atmo.cur && atmo.cur.coffee) || 0);
   gl.uniform1f(U.uBass, levels.bass);
-  fogAS += ((vizMode === 'breath' ? fogA : 0) - fogAS) * .08;
+  fogAS += ((vizRun === 'breath' ? fogA * autoViz.fade : 0) - fogAS) * .08;
   gl.uniform1f(U.uFogA, fogAS);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
@@ -2898,6 +2932,7 @@ function renderVizMenu() {
 }
 function setViz(id) {
   vizMode = id; store.set('viz', vizMode);
+  if (id === 'auto') { autoViz.t = 0; autoViz.fade = autoViz.target = 1; vizRun = nextAutoViz(); } else vizRun = id;
   $('vizName').textContent = vizLabel(vizMode); toast(vizLabel(vizMode));
 }
 $('vizMenuBtn').onclick = () => { renderVizMenu(); openSheet('vizSheet'); };
