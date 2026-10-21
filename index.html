@@ -466,13 +466,13 @@ void main(){
   if (uCurtain > .001) {
     float cl = sst(112., 92., p.x);
     float cr = sst(1348., 1368., p.x) * sst(560., 470., p.y);
-    float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.);
-    q.x += (sin(p.y * .017 - uT * 1.7 + p.x * .02) * 6. + sin(p.y * .041 - uT * 2.9) * 2.) * uCurtain * cm;
+    float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.) * (1. - mp.b);   // bitkinin üstünde perde dalgası yok
+    q.x += (sin(p.y * .017 - uT * .75 + p.x * .02) * 6. + sin(p.y * .041 - uT * 1.25) * 2.) * uCurtain * cm;
     // soldaki bitki: saksıdan yukarı doğru artan hafif salınım
     float pm = mp.b;
     if (pm > .01) {
-      float hf = clamp((640. - p.y) / 360., 0., 1.);
-      float sw = sin(uT * 1.15 + p.y * .006) * 1.8 + sin(uT * 2.1 + p.x * .018 + 1.3) * .7;
+      float hf = mix(.3, 1., clamp((640. - p.y) / 360., 0., 1.));   // alttaki yapraklar da hafifçe kıpırdar
+      float sw = sin(uT * .55 + p.y * .006) * 1.8 + sin(uT * .95 + p.x * .018 + 1.3) * .7;
       q += vec2(sw, sw * .35 - abs(sw) * .2) * hf * hf * pm * uCurtain;
     }
   }
@@ -1208,7 +1208,11 @@ const WX = {
   fog:   { label: 'Sis', fog: 1, cloud: .7 },
   wind:  { label: 'Rüzgâr', wind: 1, cloud: .3 }
 };
-const TIMES = { auto: 'Oto', dawn: 'Sabah', day: 'Gündüz', dusk: 'Akşam', night: 'Gece' };
+const TIMES = { auto: 'Oto', live: 'Canlı', dawn: 'Sabah', day: 'Gündüz', dusk: 'Akşam', night: 'Gece' };
+// oto döngü sıraları: arka arkaya benzer durumlar gelmesin diye karışık dizildi
+const CYCLE_T = ['day', 'dusk', 'night', 'dawn'];
+const CYCLE_W = ['clear', 'rain', 'fog', 'cloud', 'snow', 'wind', 'storm'];
+const CYCLE_SEC = 4;
 const atmo = {
   timeMode: store.get('timeMode', 'auto'),
   wxMode: store.get('wxMode', 'auto'),
@@ -1216,14 +1220,16 @@ const atmo = {
   coords: store.get('coords', null),
   cur: null, target: null, flash: 0, nextFlash: 3,
   from: null, tt: 99, sig: '',
+  ct: 0, cw: 0, cyc: 0, cStep: 0,
   coffee: store.get('coffee', false), coffeeFound: store.get('coffeeFound', false)
 };
-const ATMO_DUR = 4.5;   // atmosfer geçiş süresi (sn)
+const ATMO_DUR = 3;   // atmosfer geçiş süresi (sn): 4 sn'lik döngüde 1 sn durulur
 const LAMP_COL = [1.0, .66, .36];
 
 function minutesOf(iso) { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); }
 function timeWeights() {
-  if (atmo.timeMode !== 'auto') return { [atmo.timeMode]: 1 };
+  if (atmo.timeMode === 'auto') return { [CYCLE_T[atmo.ct % CYCLE_T.length]]: 1 };
+  if (atmo.timeMode !== 'live') return { [atmo.timeMode]: 1 };
   const now = new Date(); const m = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
   let sr = 6.75 * 60, ss = 18.5 * 60;
   const lv = atmo.live;
@@ -1260,7 +1266,7 @@ function computeTarget() {
     for (let i = 0; i < 3; i++) { u.amb[i] += p.amb[i] * w; u.extTint[i] += p.extTint[i] * w; }
     u.extBright += p.extBright * w; u.night += p.night * w; u.lamp += p.lamp * w; u.day += p.day * w; u.sat += p.sat * w;
   }
-  const wx = atmo.wxMode === 'auto'
+  const wx = atmo.wxMode === 'auto' ? WX[CYCLE_W[atmo.cw % CYCLE_W.length]] : atmo.wxMode === 'live'
     ? (atmo.live ? wxFromCode(atmo.live.code, atmo.live.wind).o : WX.clear)
     : WX[atmo.wxMode];
   const ov = Math.max(wx.cloud || 0, (wx.rain || 0) * .9, (wx.snow || 0) * .8, wx.fog || 0);
@@ -1285,6 +1291,18 @@ function computeTarget() {
 }
 function stepAtmo(dt) {
   const c = atmo.cur, t = atmo.target; if (!c || !t) return;
+  // oto döngü: her 4 sn'de bir; ikisi de otoysa sırayla hava, zaman, hava, zaman...
+  const tA = atmo.timeMode === 'auto', wA = atmo.wxMode === 'auto';
+  if (tA || wA) {
+    atmo.cyc += dt;
+    if (atmo.cyc >= CYCLE_SEC) {
+      atmo.cyc = 0;
+      const doW = wA && (!tA || atmo.cStep % 2 === 0);
+      if (doW) atmo.cw++; else atmo.ct++;
+      atmo.cStep++;
+      computeTarget();
+    }
+  }
   if (atmo.tt < ATMO_DUR && atmo.from) {
     atmo.tt = Math.min(ATMO_DUR, atmo.tt + dt);
     const x = atmo.tt / ATMO_DUR, k = x * x * x * (x * (x * 6 - 15) + 10);   // smootherstep: başı ve sonu yumuşak
@@ -1306,7 +1324,7 @@ function stepAtmo(dt) {
   } else atmo.flash = 0;
 }
 async function fetchWeather() {
-  if (atmo.wxMode !== 'auto' && atmo.timeMode !== 'auto') return;
+  if (atmo.wxMode !== 'live' && atmo.timeMode !== 'live') return;
   const getPos = () => new Promise((res) => {
     if (!navigator.geolocation) return res(null);
     navigator.geolocation.getCurrentPosition(
@@ -1332,9 +1350,14 @@ async function fetchWeather() {
 }
 function updateAtmoUI() {
   const lv = atmo.live;
-  const wxKey = atmo.wxMode === 'auto' ? (lv ? wxFromCode(lv.code, lv.wind).key : 'clear') : atmo.wxMode;
-  $('atmoName').textContent = (atmo.timeMode === 'auto' && atmo.wxMode === 'auto') ? 'Oto' :
-    [atmo.timeMode !== 'auto' ? TIMES[atmo.timeMode] : null, atmo.wxMode !== 'auto' ? WX[atmo.wxMode].label : null].filter(Boolean).join(' · ');
+  const wxKey = atmo.wxMode === 'live' ? (lv ? wxFromCode(lv.code, lv.wind).key : 'clear') : atmo.wxMode === 'auto' ? CYCLE_W[atmo.cw % CYCLE_W.length] : atmo.wxMode;
+  const tName = atmo.timeMode === 'auto' ? 'Oto' : TIMES[atmo.timeMode];
+  const wName = atmo.wxMode === 'auto' ? 'Oto' : atmo.wxMode === 'live' ? 'Canlı' : WX[atmo.wxMode].label;
+  $('atmoName').textContent = tName === wName ? tName : tName + ' · ' + wName;
+  if (atmo.timeMode !== 'live' && atmo.wxMode !== 'live') {
+    const tk = atmo.timeMode === 'auto' ? CYCLE_T[atmo.ct % CYCLE_T.length] : atmo.timeMode;
+    $('atmoInfo').textContent = (atmo.timeMode === 'auto' || atmo.wxMode === 'auto' ? 'Oto döngü, 4 sn  ·  şu an ' : 'Şu an ') + TIMES[tk] + ' · ' + WX[wxKey].label;
+  }
   if (lv) $('atmoInfo').textContent = `Şu an ${Math.round(lv.temp)}°  ·  ${WX[wxKey].label}  ·  ` +
     `gün doğumu ${lv.sunrise.slice(11, 16)}  ·  batımı ${lv.sunset.slice(11, 16)}`;
   const mk = (box, items, active, onPick) => {
@@ -1344,9 +1367,9 @@ function updateAtmoUI() {
       b.onclick = () => onPick(k); box.appendChild(b);
     }
   };
-  mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); });
-  mk($('wxOpts'), [['auto', 'Oto'], ...Object.entries(WX).map(([k, v]) => [k, v.label])], atmo.wxMode,
-    (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'auto') fetchWeather(); });
+  mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
+  mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.entries(WX).map(([k, v]) => [k, v.label])], atmo.wxMode,
+    (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
   $('secretRow').style.display = atmo.coffeeFound ? '' : 'none';
   mk($('secretOpts'), [['coffee', '☕ Kahve molası']], atmo.coffee ? 'coffee' : '', () => toggleCoffee());
 }
@@ -2078,8 +2101,8 @@ function frame(now) {
   const cTarget = .72 + .16 * Math.sin(T * 7.3) * Math.sin(T * 3.7 + 1) + .1 * Math.sin(T * 1.3) + (Math.random() - .5) * .12 + levels.high * .35 + levels.bass * .2;
   candleF += (cTarget - candleF) * Math.min(1, fdt * 14);
   // esinti: perde salınımının şiddeti
-  const kTarget = vizMode === 'breeze' ? .3 + levels.bass * 1.3 + (levels.beat ? .4 : 0) : 0;
-  curtainS += (kTarget - curtainS) * Math.min(1, fdt * (kTarget > curtainS ? 6 : 1.5));
+  const kTarget = vizMode === 'breeze' ? .45 + levels.energy * .7 : 0;
+  curtainS += (kTarget - curtainS) * Math.min(1, fdt * .8);
   if (glReady) drawGL(jitter);
   drawFX(fdt);
   // ilerleme çubuğu: sadece transform yazıyoruz (layout yok)
