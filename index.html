@@ -416,12 +416,12 @@ function computeView() {
   view.portrait = vh > vw * 1.05;
   document.body.classList.toggle('land', !view.portrait);
   if (view.portrait && cineMode) {
-    // sinema: sahnenin x 0-1240 / y 70-790 bölümü tam genişlikte, üst ve altta bantlar
-    const T0 = 76 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0);
+    // sinema: sahnenin x 0-1240 / y 60-890 bölümü tam genişlikte (pikabın önündeki dalga da kadrajda), üst ve altta bantlar
+    const T0 = 62 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0);
     view.s = vw / 1240;
     view.tx = 0;
-    view.ty = T0 - 70 * view.s;
-    const bot = T0 + 720 * view.s;
+    view.ty = T0 - 60 * view.s;
+    const bot = T0 + 830 * view.s;
     const r = document.documentElement.style;
     r.setProperty('--cine-top', T0 + 'px'); r.setProperty('--cine-bot', bot + 'px');
     r.setProperty('--scene-h', (bot + 48) + 'px');
