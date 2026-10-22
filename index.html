@@ -3202,7 +3202,21 @@ document.addEventListener('fullscreenchange', () => { setFsIcon(); setTimeout(co
 document.addEventListener('pointerup', function fsOnce(e) {
   if (fsWanted && !document.fullscreenElement && !$('fsBtn').contains(e.target)) enterFs();
 }, true);
-if (!fsSupported || matchMedia('(display-mode: fullscreen)').matches) $('fsBtn').style.display = 'none';
+// uygulama zaten tam ekran açıldıysa (APK, display: fullscreen) düğme gereksiz ve otomatik geçiş uyarı çıkarır
+function alreadyFull() {
+  if (document.fullscreenElement) return false;
+  if (matchMedia('(display-mode: fullscreen)').matches) return true;
+  const sw = Math.min(screen.width, screen.height), sh = Math.max(screen.width, screen.height);
+  const vw = Math.min(innerWidth, innerHeight), vh = Math.max(innerWidth, innerHeight);
+  return sh - vh < 4 && sw - vw < 4;     // pencere ekranın tamamını kaplıyor: çubuklar zaten gizli
+}
+function syncFsBtn() {
+  const hide = !fsSupported || alreadyFull();
+  $('fsBtn').style.display = hide ? 'none' : '';
+  if (hide && !document.fullscreenElement) fsWanted = false;
+}
+syncFsBtn();
+addEventListener('resize', () => setTimeout(syncFsBtn, 200));
 setFsIcon();
 
 /* ---------- yatay ekranda ayar menüsü (aç / kapa) ---------- */
