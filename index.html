@@ -152,7 +152,7 @@
   .vp-head b{font-size:20px;letter-spacing:1px;color:var(--ink);font-weight:400;font-family:var(--serif);font-variant-numeric:tabular-nums}
   #volStage{height:184px;display:grid;place-items:center;perspective:700px;touch-action:none;user-select:none}
   body.land #volStage{height:150px}
-  #volStyles{display:flex;gap:6px;justify-content:center}
+  #volStyles{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
   .vs{font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted);padding:7px 10px;border-radius:999px;border:1px solid var(--faint)}
   .vs.on{color:var(--amber);border-color:rgba(233,180,111,.55)}
   /* fader */
@@ -178,6 +178,41 @@
   body.land .vk{height:76px}
   .vk-bar{width:170px;height:8px;border-radius:4px;background:#1a1411;margin-top:20px;overflow:hidden;box-shadow:inset 0 1px 3px #000}
   .vk-bar i{display:block;height:100%;background:linear-gradient(90deg,#c27a32,#e9b46f);box-shadow:0 0 10px var(--amber);transform-origin:0 50%;will-change:transform}
+
+  /* nixie tüpleri */
+  .vn-wrap{display:flex;flex-direction:column;align-items:center}
+  .vn{display:flex;gap:7px;padding:12px 12px 15px;border-radius:12px;cursor:ns-resize;touch-action:none;
+    background:linear-gradient(#2a1f17,#120c08);box-shadow:inset 0 1px 0 rgba(255,220,170,.12),0 14px 22px rgba(0,0,0,.7)}
+  .vn-t{width:46px;height:86px;border-radius:23px 23px 9px 9px;position:relative;overflow:hidden;
+    background:radial-gradient(120% 80% at 50% 30%,rgba(255,140,60,.08),rgba(0,0,0,.6)),linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.02) 35%,rgba(255,255,255,.1));
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),inset 0 -8px 14px rgba(0,0,0,.6)}
+  .vn-t::before{content:"";position:absolute;inset:7px;border-radius:18px 18px 6px 6px;
+    background-image:linear-gradient(rgba(140,110,80,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(140,110,80,.18) 1px,transparent 1px);background-size:5px 5px}
+  .vn-t span{position:absolute;inset:0;display:grid;place-items:center;font:300 48px/1 Georgia,serif;color:#ffb36b;
+    text-shadow:0 0 4px #ff8a3c,0 0 12px #ff6a1a,0 0 26px rgba(255,90,20,.6)}
+  .vn-t .g{color:rgba(160,120,90,.12);text-shadow:none}
+  .vn-b{display:flex;gap:10px;margin-top:12px}
+  .vn-b button{width:40px;height:26px;border-radius:6px;color:#e9c99a;background:linear-gradient(#3a2c22,#1d140d);box-shadow:0 4px 0 #0e0805;font-size:13px}
+  .vn-b button:active{transform:translateY(3px);box-shadow:0 1px 0 #0e0805}
+  body.land .vn-wrap{transform:scale(.86)}
+  /* mum */
+  .vc{cursor:ns-resize;touch-action:none}
+  body.land .vc{transform:scale(.82)}
+  /* piyano */
+  .vpn{display:flex;gap:3px;padding:10px 10px 14px;border-radius:10px;background:linear-gradient(#2a1a10,#140c07);box-shadow:0 12px 20px rgba(0,0,0,.6);touch-action:none}
+  .vpn i{width:19px;height:118px;border-radius:0 0 5px 5px;background:linear-gradient(#f4efe4,#d9d1c1);box-shadow:0 6px 0 #8a8174,inset 0 -3px 0 rgba(0,0,0,.08);transition:transform .06s,box-shadow .06s,background .2s}
+  .vpn i.on{background:linear-gradient(#ffe6b8,#e9b46f);box-shadow:0 6px 0 #9a6a2c,0 0 14px rgba(233,180,111,.45)}
+  .vpn i.down{transform:translateY(4px);box-shadow:0 2px 0 #8a8174}
+  body.land .vpn i{height:96px}
+  /* krom kol */
+  .vl{width:190px;height:172px;position:relative;cursor:grab;touch-action:none}
+  body.land .vl{transform:scale(.85)}
+  .vl-plate{position:absolute;left:20px;right:20px;bottom:6px;height:66px;border-radius:12px;background:linear-gradient(#3a332f,#1d1917);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 10px 18px rgba(0,0,0,.6)}
+  .vl-slot{position:absolute;left:50%;bottom:30px;width:120px;height:14px;margin-left:-60px;border-radius:7px;background:#060504;box-shadow:inset 0 2px 4px #000}
+  .vl-stick{position:absolute;left:50%;bottom:36px;width:10px;height:112px;margin-left:-5px;transform-origin:50% 100%;border-radius:5px;will-change:transform;
+    background:linear-gradient(90deg,#6d6d6d,#f7f7f7 40%,#9a9a9a 70%,#555)}
+  .vl-ball{position:absolute;left:50%;top:-16px;width:30px;height:30px;margin-left:-15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd2a6,#c9461f 50%,#5a160a)}
+  .vl-tk{position:absolute;left:94px;bottom:36px;width:2px;height:8px;transform-origin:50% 0}
   /* ışık basamakları */
   .vs3{display:flex;align-items:flex-end;gap:5px;height:140px;cursor:pointer;touch-action:none;transform:rotateX(18deg) rotateY(-14deg);transform-style:preserve-3d}
   body.land .vs3{transform:rotateX(18deg) rotateY(-14deg) scale(.85)}
@@ -191,6 +226,25 @@
     background:rgba(13,11,10,.35);border:1px solid rgba(242,235,225,.14);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
     opacity:.55;transition:opacity .4s}
   #fsBtn:active{opacity:1}
+  #camBtn{position:fixed;top:calc(12px + env(safe-area-inset-top));right:calc(60px + env(safe-area-inset-right));z-index:6;
+    width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--ink);
+    background:rgba(13,11,10,.35);border:1px solid rgba(242,235,225,.14);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:.55;transition:opacity .4s,color .3s,border-color .3s}
+  #camBtn.on{opacity:.9;color:var(--amber);border-color:rgba(233,180,111,.5)}
+  #camBtn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  body.land #camBtn{display:none}
+  #cineBtn{position:fixed;top:calc(12px + env(safe-area-inset-top));right:calc(108px + env(safe-area-inset-right));z-index:6;
+    width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--ink);
+    background:rgba(13,11,10,.35);border:1px solid rgba(242,235,225,.14);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);opacity:.55;transition:opacity .4s,color .3s,border-color .3s}
+  #cineBtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  body.land #cineBtn{display:none}
+  /* sinema kadrajı: saksıdan iğneye her şey tek karede, üstte ve altta sinema bantları */
+  body.cine:not(.land) #cineBtn{right:calc(60px + env(safe-area-inset-right));opacity:.9;color:var(--amber);border-color:rgba(233,180,111,.5)}
+  body.cine:not(.land) #camBtn{display:none}
+  body.cine:not(.land) #fade{display:none}
+  #cineTop,#cineBot{position:fixed;left:0;right:0;z-index:3;pointer-events:none;background:#050404;display:none}
+  #cineTop{top:0;height:var(--cine-top,64px);box-shadow:0 1px 0 rgba(233,180,111,.08)}
+  #cineBot{top:var(--cine-bot,300px);bottom:0;box-shadow:0 -1px 0 rgba(233,180,111,.08)}
+  body.cine:not(.land) #cineTop,body.cine:not(.land) #cineBot{display:block}
   #fsBtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 
   #toast{position:fixed;left:50%;top:calc(18px + env(safe-area-inset-top));z-index:20;transform:translate(-50%,-8px);
@@ -209,6 +263,9 @@
 <div id="hit"></div>
 <div id="fade"></div>
 <button id="moreBtn" aria-label="Ayarlar"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
+<div id="cineTop"></div><div id="cineBot"></div>
+<button id="cineBtn" aria-label="Sinema kadrajı"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M3 9h18M3 15h18M7 6v3M12 6v3M17 6v3M7 15v3M12 15v3M17 15v3"/></svg></button>
+<button id="camBtn" aria-label="Görüntüyü sabitle"><svg viewBox="0 0 24 24" id="camIcon"></svg></button>
 <button id="fsBtn" aria-label="Tam ekran"><svg viewBox="0 0 24 24" id="fsIcon"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
 
 <div id="panel">
@@ -253,7 +310,6 @@
   <div class="vp-head"><span>Ses</span><b id="volVal">80</b></div>
   <div id="volStage"></div>
   <div id="volStyles">
-    <button class="vs" data-s="fader">Fader</button><button class="vs" data-s="tuner">Skala</button><button class="vs" data-s="keys">Tuşlar</button><button class="vs" data-s="stairs">Basamak</button>
   </div>
 </div>
 <div class="scrim" id="scrim"></div>
@@ -351,13 +407,25 @@ const store = {
    GÖRÜNÜM: sahneyi ekrana yerleştir (sadece resize'da hesaplanır)
    =========================================================== */
 const view = { s: 1, tx: 0, ty: 0, dpr: 1, w: 0, h: 0, portrait: true };
+let cineMode = store.get('cine', false);
+document.body.classList.toggle('cine', cineMode);
 function computeView() {
   const vw = innerWidth, vh = innerHeight;
   view.dpr = Math.min(devicePixelRatio || 1, 2);
   view.w = vw; view.h = vh;
   view.portrait = vh > vw * 1.05;
   document.body.classList.toggle('land', !view.portrait);
-  if (view.portrait) {
+  if (view.portrait && cineMode) {
+    // sinema: sahnenin x 0-1240 / y 70-790 bölümü tam genişlikte, üst ve altta bantlar
+    const T0 = 76 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0);
+    view.s = vw / 1240;
+    view.tx = 0;
+    view.ty = T0 - 70 * view.s;
+    const bot = T0 + 720 * view.s;
+    const r = document.documentElement.style;
+    r.setProperty('--cine-top', T0 + 'px'); r.setProperty('--cine-bot', bot + 'px');
+    r.setProperty('--scene-h', (bot + 48) + 'px');
+  } else if (view.portrait) {
     // dikey: pikap genişliği ekranı doldursun, sahne üstte
     view.s = Math.max(vw / 910, vh * .5 / STAGE_H);
     view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
@@ -540,14 +608,15 @@ void main(){
 
   // ---- gizli kahve: kitabın yanında, masada fincan ve kozalak (ışığa göre aydınlatılır)
   if (uCoffee > .005) {
-    vec2 sd = (p - vec2(1574., 793.)) / vec2(80., 13.);
+    vec2 sdp = p - vec2(1574., 793.); sdp = mat2(.998, -.06, .06, .998) * sdp;   // gölge de tabakla aynı açıda
+    vec2 sd = sdp / vec2(91., 15.);
     col *= 1. - .34 * uCoffee * exp(-dot(sd, sd));
     vec2 ku = (p - vec2(1333., 574.)) / vec2(132., 136.);   // kozalak kitabın üstünde, dik
     if (all(greaterThan(ku, vec2(0.))) && all(lessThan(ku, vec2(1.)))) {
       vec4 kp = texture(uCone, ku);
       col = mix(col, lightInterior(kp.rgb, 0., p), kp.a * uCoffee);
     }
-    vec2 cu = (p - vec2(1480., 630.)) / vec2(180., 180.);
+    vec2 cu = (p - vec2(1467., 608.)) / vec2(205., 205.);
     if (all(greaterThan(cu, vec2(0.))) && all(lessThan(cu, vec2(1.)))) {
       vec4 cp = texture(uCup, cu);
       vec3 lit = lightInterior(cp.rgb, 0., p);
@@ -599,7 +668,7 @@ void main(){
 
   // ---- fincandan yükselen buhar
   if (uCoffee > .005) {
-    vec2 sp = (p - vec2(1570., 710.)) / 1.35;   // fincan ağzı (fincan büyüdü: buhar da ölçeklenir)
+    vec2 sp = (p - vec2(1570., 699.)) / 1.55;   // fincan ağzı (fincan büyüdü: buhar da ölçeklenir)
     float h = -sp.y;
     if (h > -4. && h < 300. && abs(sp.x) < 120.) {
       float t = h / 300., st = 0.;
@@ -753,8 +822,9 @@ function makeCup() {
   };
   const POR = [222, 215, 202], POR_D = [128, 120, 108];
   const GOLD = 'rgba(160,128,72,.85)';
-  // --- tabak
+  // --- tabak (masanın eğimine uysun diye saat yönünde ~3.5° döndürülmüş)
   const sy = 452, srx = 206, sry = srx * K;
+  x.save(); x.translate(CX, sy); x.rotate(.06); x.translate(-CX, -sy);
   x.fillStyle = 'rgba(30,22,15,.35)'; x.filter = 'blur(10px)';
   x.beginPath(); x.ellipse(CX + 6, sy + 16, srx * .98, sry * .9, 0, 0, Math.PI * 2); x.fill();
   x.filter = 'none';
@@ -772,6 +842,7 @@ function makeCup() {
   x.fillStyle = 'rgba(40,30,22,.42)'; x.filter = 'blur(9px)';
   x.beginPath(); x.ellipse(CX + 22, sy + 2, 104, 104 * K, 0, 0, Math.PI * 2); x.fill();
   x.filter = 'none';
+  x.restore();
   // --- fincan gövdesi: ağız geniş, alta doğru hafif lale gibi daralır, küçük ayak
   const top = 228, bot = 436, rt = 116, rb = 84;
   const body = new Path2D();
@@ -1173,7 +1244,13 @@ let platterSpeed = 0, platterTarget = 0, rot = 0;
 let seq = 0; // eşzamanlı animasyonları iptal etmek için
 const tweens = [];
 function tween(dur, fn) {
+  // uygulama arka plandayken ekran çizilmez: animasyonu beklemeden son haline geç,
+  // böylece şarkı bitince sıradaki şarkı arka planda da hemen başlar
+  if (document.hidden) { fn(1); return Promise.resolve(); }
   return new Promise(res => tweens.push({ t: 0, dur, fn, res }));
+}
+function flushTweens() {
+  while (tweens.length) { const tw = tweens.shift(); tw.fn(1); tw.res(); }
 }
 function stepTweens(dt) {
   for (let i = tweens.length - 1; i >= 0; i--) {
@@ -1772,6 +1849,7 @@ const GLARE = (() => {
 // mum: sahnenin önünde, masanın sol tarafında hayali bir mum
 const CANDLE_X = 300, CANDLE_Y = 980;
 let candleF = .7, candleN = 0;
+const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
 // buğu katmanı: camın yarı çözünürlüğü (545x216), yumuşak ölçeklenir
 const FOG_W = 545, FOG_H = 216;
@@ -2295,8 +2373,18 @@ function frame(now) {
   // küçük titreşim: iğne bas ile hafifçe titrer
   const jitter = isPlaying && vizRun !== 'off' ? levels.bass * .07 * Math.sin(T * 47) : 0;
   // mum titremesi: hızlı küçük kıpırtı + yavaş nefes + müzik
-  const cTarget = .72 + .16 * Math.sin(T * 7.3) * Math.sin(T * 3.7 + 1) + .1 * Math.sin(T * 1.3) + (Math.random() - .5) * .12 + levels.high * .35 + levels.bass * .2;
-  candleF += (cTarget - candleF) * Math.min(1, fdt * 14);
+  // gerçek mum gibi: sürekli kıpırtı + ara ara alevin neredeyse sönüp toparlandığı anlar
+  candleDip.wait -= fdt;
+  if (candleDip.wait <= 0 && candleDip.t < 0) { candleDip.t = 0; candleDip.len = .5 + Math.random() * 1.1; candleDip.depth = .45 + Math.random() * .35; }
+  let dip = 0;
+  if (candleDip.t >= 0) {
+    candleDip.t += fdt;
+    const u = candleDip.t / candleDip.len;
+    if (u >= 1) { candleDip.t = -1; candleDip.wait = 3 + Math.random() * 7; }
+    else dip = Math.sin(u * Math.PI) ** .7 * candleDip.depth * (.85 + .15 * Math.sin(T * 31));   // sönerken de titrer
+  }
+  const cTarget = (.74 + .24 * Math.sin(T * 7.3) * Math.sin(T * 3.7 + 1) + .14 * Math.sin(T * 1.3) + (Math.random() - .5) * .2 + levels.high * .35 + levels.bass * .2) * (1 - dip);
+  candleF += (cTarget - candleF) * Math.min(1, fdt * (dip > .05 ? 9 : 16));
   // esinti: perde salınımının şiddeti
   const kTarget = vizRun === 'breeze' ? (.45 + levels.energy * .7) * autoViz.fade : 0;
   curtainS += (kTarget - curtainS) * Math.min(1, fdt * .8);
@@ -2610,11 +2698,11 @@ const TAP_BY_ID = Object.fromEntries(TAP_EFFECTS.map(e => [e.id, e]));
 // atanabilir tuşlar ve varsayılanlar (her tuş farklı)
 const TAP_TARGETS = [
   ['play', 'Çal'], ['stop', 'Durdur'], ['prev', 'Önceki'], ['next', 'Sonraki'], ['volBtn', 'Ses'], ['libBtn', 'Raf'],
-  ['fsBtn', 'Tam ekran'], ['moreBtn', 'Ayarlar'], ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['groove', 'İlerleme çubuğu'], ['record', 'Plak']
+  ['fsBtn', 'Tam ekran'], ['camBtn', 'Kamera kilidi'], ['cineBtn', 'Sinema'], ['moreBtn', 'Ayarlar'], ['vizBtn', 'Görsel'], ['vizMenuBtn', 'Görseller'], ['atmoBtn', 'Atmosfer'], ['orderBtn', 'Sıra'], ['tapBtn', 'Dokunuş'], ['groove', 'İlerleme çubuğu'], ['record', 'Plak']
 ];
 const TAP_DEFAULTS = {
   play: ['halo', '#e9b46f'], stop: ['shock', '#ff6b6b'], prev: ['sweep', '#47d3c9'], next: ['sparks', '#ffd166'],
-  fsBtn: ['halo', '#f2ebe1'], moreBtn: ['orbit', '#e9b46f'], volBtn: ['pulse', '#47d3c9'], libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
+  fsBtn: ['halo', '#f2ebe1'], camBtn: ['trace', '#e9b46f'], cineBtn: ['comet', '#e9b46f'], moreBtn: ['orbit', '#e9b46f'], volBtn: ['pulse', '#47d3c9'], libBtn: ['stars', '#f2ebe1'], vizBtn: ['bokeh', '#47d3c9'], vizMenuBtn: ['orbit', '#b28dff'], atmoBtn: ['smoke', '#b28dff'],
   orderBtn: ['spiral', '#7ee081'], groove: ['scatter', '#e9b46f'], tapBtn: ['prism', '#f2ebe1'], record: ['pulse', '#e9b46f']
 };
 let tapMap = Object.assign({}, TAP_DEFAULTS, store.get('tapMap', {}));
@@ -2696,7 +2784,9 @@ $('tapReset').onclick = (e) => { tapMap = Object.assign({}, TAP_DEFAULTS); saveT
    =========================================================== */
 let volume = clamp(store.get('vol', 80), 0, 100);
 let volStyle = store.get('volStyle', 'fader');
-const VOL_STYLES = [['fader', 'Fader'], ['tuner', 'Skala'], ['keys', 'Tuşlar'], ['stairs', 'Basamak']];
+const VOL_STYLES = [['fader', 'Fader'], ['tuner', 'Skala'], ['keys', 'Tuşlar'], ['stairs', 'Basamak'], ['nixie', 'Nixie'], ['candle', 'Mum'], ['piano', 'Piyano'], ['lever', 'Kol']];
+$('volStyles').innerHTML = VOL_STYLES.map(([k, n]) => `<button class="vs" data-s="${k}">${n}</button>`).join('');
+let volAnim = 0;
 if (!VOL_STYLES.some(s => s[0] === volStyle)) volStyle = 'fader';
 let volDraw = null, volCloseT = 0;
 
@@ -2749,6 +2839,7 @@ function volDragX(el, pad, steps) {
 function renderVolStyle() {
   const st = $('volStage');
   st.innerHTML = '';
+  cancelAnimationFrame(volAnim); volAnim = 0;
   document.querySelectorAll('#volStyles .vs').forEach(b => b.classList.toggle('on', b.dataset.s === volStyle));
   if (volStyle === 'fader') {
     st.innerHTML = '<div class="vf"><div class="vf-slot"></div><div class="vf-cap"></div></div>';
@@ -2779,6 +2870,66 @@ function renderVolStyle() {
       const stop = () => clearTimeout(hold);
       k.addEventListener('pointerup', stop); k.addEventListener('pointerleave', stop); k.addEventListener('pointercancel', stop);
     });
+  } else if (volStyle === 'nixie') {
+    st.innerHTML = '<div class="vn-wrap"><div class="vn">' + '<div class="vn-t"><span class="g">8</span><span></span></div>'.repeat(3) + '</div><div class="vn-b"><button aria-label="Sesi azalt">▼</button><button aria-label="Sesi artır">▲</button></div></div>';
+    const digs = [...st.querySelectorAll('.vn-t span:not(.g)')];
+    volDraw = () => { const s = String(Math.round(volume)).padStart(3, ' '); digs.forEach((d, i) => d.textContent = s[i].trim()); };
+    volDragY(st.querySelector('.vn'), .4);
+    const [dn, up] = st.querySelectorAll('.vn-b button');
+    dn.onclick = () => setVolume(Math.round(volume) - 1); up.onclick = () => setVolume(Math.round(volume) + 1);
+  } else if (volStyle === 'candle') {
+    // mum: alev sesin büyüklüğü; panel açıkken canlı titrer
+    const W = 200, H = 180, d = Math.min(2, devicePixelRatio || 1);
+    st.innerHTML = `<canvas class="vc" width="${W * d}" height="${H * d}" style="width:${W}px;height:${H}px"></canvas>`;
+    const cv = st.querySelector('canvas'), x = cv.getContext('2d'); x.scale(d, d);
+    const frame = (now) => {
+      const t = now / 1000, cm = clamp(candleF / .8, .3, 1.25), k = volume / 100 * (.55 + .45 * cm), fl = Math.sin(t * 13) * .07 + Math.sin(t * 7.3) * .08 + (cm - 1) * .25;
+      x.clearRect(0, 0, W, H);
+      const glow = x.createRadialGradient(100, 70, 4, 100, 76, 36 + k * 54);   // kenara değmeden söner
+      glow.addColorStop(0, `rgba(255,170,80,${.18 + k * .35})`); glow.addColorStop(1, 'rgba(255,120,40,0)');
+      x.fillStyle = glow; x.fillRect(0, 0, W, H);
+      const b = x.createLinearGradient(78, 0, 122, 0); b.addColorStop(0, '#cdbfa6'); b.addColorStop(.4, '#f3ead8'); b.addColorStop(1, '#a99a80');
+      x.fillStyle = b; x.fillRect(78, 106, 44, 74);
+      x.fillStyle = '#efe4cf'; x.beginPath(); x.ellipse(100, 106, 22, 6, 0, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = '#2a1a0a'; x.lineWidth = 2; x.beginPath(); x.moveTo(100, 106); x.lineTo(100, 98); x.stroke();
+      if (k > .005) {
+        const h = 10 + k * 58, wv = 4 + k * 8, sway = Math.sin(t * 3.1) * 2 * k;
+        x.save(); x.translate(100, 100); x.scale(1 + fl * .5, 1 + fl);
+        const f = x.createRadialGradient(0, -h * .3, 1, 0, -h * .35, h * .7);
+        f.addColorStop(0, '#fffbe8'); f.addColorStop(.35, '#ffd27a'); f.addColorStop(.75, 'rgba(255,120,30,.85)'); f.addColorStop(1, 'rgba(255,80,20,0)');
+        x.fillStyle = f; x.beginPath(); x.moveTo(0, 2);
+        x.bezierCurveTo(wv * 1.6, -h * .2, wv + sway, -h * .7, sway, -h);
+        x.bezierCurveTo(-wv + sway, -h * .7, -wv * 1.6, -h * .2, 0, 2); x.fill();
+        x.fillStyle = 'rgba(90,140,255,.5)'; x.beginPath(); x.ellipse(0, -1, 3, 4, 0, 0, Math.PI * 2); x.fill();
+        x.restore();
+      }
+      if ($('volPop').classList.contains('on')) volAnim = requestAnimationFrame(frame); else volAnim = 0;
+    };
+    volAnim = requestAnimationFrame(frame);
+    volDraw = () => {};
+    volDragY(cv, .6);
+  } else if (volStyle === 'piano') {
+    st.innerHTML = '<div class="vpn">' + '<i></i>'.repeat(11) + '</div>';
+    const p = st.querySelector('.vpn'), keys = [...p.children];
+    volDraw = () => { keys.forEach((k, i) => k.classList.toggle('on', i > 0 && i * 10 <= Math.round(volume))); };
+    // tuşa bas ya da tuşların üstünden kaydır
+    let r = null;
+    const at = e => { const i = clamp(Math.floor((e.clientX - r.left) / r.width * 11), 0, 10); keys.forEach((k, j) => k.classList.toggle('down', j === i)); setVolume(i * 10); };
+    p.addEventListener('pointerdown', e => { r = p.getBoundingClientRect(); p.setPointerCapture(e.pointerId); at(e); });
+    p.addEventListener('pointermove', e => { if (r) at(e); });
+    const up = () => { r = null; keys.forEach(k => k.classList.remove('down')); };
+    p.addEventListener('pointerup', up); p.addEventListener('pointercancel', up);
+  } else if (volStyle === 'lever') {
+    st.innerHTML = '<div class="vl"><div class="vl-plate"></div><div class="vl-slot"></div><div class="vl-stick"><div class="vl-ball"></div></div></div>';
+    const L = st.querySelector('.vl'), s = L.querySelector('.vl-stick');
+    for (let i = 0; i <= 10; i++) { const t = document.createElement('div'); t.className = 'vl-tk'; t.style.transform = `rotate(${-50 + i * 10}deg) translateY(-122px)`; t.style.background = i % 5 ? 'rgba(242,235,225,.25)' : 'rgba(233,180,111,.75)'; L.appendChild(t); }
+    volDraw = () => { s.style.transform = `rotate(${-50 + volume}deg)`; };
+    // topuzu yana çek: kolun açısı parmağın konumundan
+    let r = null;
+    const at = e => { const px = r.left + r.width / 2, py = r.bottom - 36; const a = Math.atan2(e.clientX - px, py - e.clientY) * 180 / Math.PI; setVolume(a + 50); };
+    L.addEventListener('pointerdown', e => { r = L.getBoundingClientRect(); L.setPointerCapture(e.pointerId); at(e); });
+    L.addEventListener('pointermove', e => { if (r) at(e); });
+    L.addEventListener('pointerup', () => r = null); L.addEventListener('pointercancel', () => r = null);
   } else {
     st.innerHTML = '<div class="vs3"></div>';
     const s = st.querySelector('.vs3'), N = 12;
@@ -2819,7 +2970,7 @@ document.addEventListener('fullscreenchange', () => { setFsIcon(); setTimeout(co
 document.addEventListener('pointerup', function fsOnce(e) {
   if (fsWanted && !document.fullscreenElement && !$('fsBtn').contains(e.target)) enterFs();
 }, true);
-if (!fsSupported) $('fsBtn').style.display = 'none';
+if (!fsSupported || matchMedia('(display-mode: fullscreen)').matches) $('fsBtn').style.display = 'none';
 setFsIcon();
 
 /* ---------- yatay ekranda ayar menüsü (aç / kapa) ---------- */
@@ -2955,17 +3106,41 @@ $('orderBtn').onclick = () => {
 let secretTaps = 0, secretLast = 0;
 // dikey ekranda kamera: sahne ekrandan geniş. Parmakla sağa sola kaydırılır;
 // dokunulmayınca yavaşça saksıdan masaya ve geri süzülür (sinematik pan)
-const cam = { x: 875, target: 875, holdUntil: 0, t: 0, dragging: false };
+const cam = { x: 875, target: 875, holdUntil: 0, t: 0, dragging: false,
+  locked: store.get('camLock', false), lockX: store.get('camX', 875) };
+if (cam.locked) cam.x = cam.target = cam.lockX;
+// kilit: kamera turu durur, görüntü seçtiğin yerde kalır (sürükleyerek yeri değiştirebilirsin)
+function setCamIcon() {
+  $('camIcon').innerHTML = cam.locked
+    ? '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
+    : '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>';
+  $('camBtn').classList.toggle('on', cam.locked);
+  $('camBtn').setAttribute('aria-label', cam.locked ? 'Görüntü sabit (serbest bırak)' : 'Görüntüyü sabitle');
+}
+$('camBtn').onclick = () => {
+  cam.locked = !cam.locked; store.set('camLock', cam.locked);
+  if (cam.locked) { cam.lockX = cam.x; store.set('camX', Math.round(cam.x)); toast('Görüntü sabitlendi'); }
+  else { cam.holdUntil = 0; toast('Kamera serbest'); }
+  setCamIcon();
+};
+setCamIcon();
+$('cineBtn').onclick = () => {
+  cineMode = !cineMode; store.set('cine', cineMode);
+  document.body.classList.toggle('cine', cineMode);
+  computeView();
+  toast(cineMode ? 'Sinema kadrajı' : 'Normal kadraj');
+};
 function camRange() {
   const half = view.w / view.s / 2;
   return [half, STAGE_W - half];
 }
 function stepCam(dt) {
-  if (!view.portrait) return;
+  if (!view.portrait || cineMode) return;
   const [lo, hi] = camRange();
   if (hi <= lo) { cam.x = cam.target = STAGE_W / 2; }
   else if (!cam.dragging) {
-    if (performance.now() > cam.holdUntil) {
+    if (cam.locked) cam.target = clamp(cam.lockX, lo, hi);
+    else if (performance.now() > cam.holdUntil) {
       // 60 sn'lik tur: uçlarda bekler, aradan yavaşça geçer
       cam.t += dt / 60;
       const w = Math.sin(cam.t * Math.PI * 2);
@@ -2998,6 +3173,7 @@ function stepCam(dt) {
   const end = (e) => {
     if (cam.dragging) {
       cam.dragging = false; cam.holdUntil = performance.now() + 20000;   // elle bakılan yerde 20 sn kal
+      if (cam.locked) { cam.lockX = cam.x; store.set('camX', Math.round(cam.x)); }   // kilitliyken yeni yeri hatırla
       // otomatik tur kaldığı yerden devam etsin
       const [lo, hi] = camRange(); const k = clamp((cam.x - lo) / Math.max(1, hi - lo), 0, 1);
       cam.t = Math.asin(clamp((k - .5) * 2 / 1.35, -1, 1)) / (Math.PI * 2);
@@ -3036,7 +3212,7 @@ addEventListener('keydown', (e) => {
 let resizeTimer;
 addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(computeView, 80); });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+  if (document.hidden) { cancelAnimationFrame(raf); raf = 0; flushTweens(); }
   else if (!raf) { lastT = lastRender = performance.now(); raf = requestAnimationFrame(frame); computeTarget(); }
 });
 
