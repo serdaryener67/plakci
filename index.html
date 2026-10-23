@@ -1529,7 +1529,7 @@ const WX = {
   wind:  { label: 'Rüzgâr', wind: 1, cloud: .3 }
 };
 // kış kulübesinde yağmur kara, fırtına tipiye döner (şimşek olmaz)
-const WINTER_WX = { rain: { label: 'Hafif kar', snow: .55, wind: .1, cloud: .9 }, storm: { label: 'Tipi', snow: 1.35, wind: .9, cloud: 1 } };
+const WINTER_WX = { wind: { label: 'Rüzgâr', wind: 1, snow: .5, cloud: .3 }, rain: { label: 'Hafif kar', snow: .55, wind: .1, cloud: .9 }, storm: { label: 'Tipi', snow: 1.35, wind: .9, cloud: 1 } };
 function winterNow() { let m = 'auto'; try { m = sceneMode; } catch (e) {} return !!(SCENES[m] && SCENES[m].winter); }   // sceneMode henüz tanımlı olmayabilir
 function winterWx(wx) { for (const k in WINTER_WX) if (wx === WX[k]) return WINTER_WX[k]; return wx; }
 function wxLabel(k) { return winterNow() && WINTER_WX[k] ? WINTER_WX[k].label : WX[k].label; }
@@ -1809,8 +1809,8 @@ const orbs = Array.from({ length: 40 }, (_, i) => ({
 }));
 const dust = Array.from({ length: 90 }, () => ({ x: rnd(0, STAGE_W), y: rnd(0, STAGE_H), r: rnd(.7, 2.2), ph: rnd(0, 6.28), sp: rnd(.3, 1) }));
 const rain = Array.from({ length: 160 }, () => ({ x: rnd(100, 1260), y: rnd(-40, 440), l: rnd(14, 30), v: rnd(850, 1250) }));
-const snow = Array.from({ length: 140 }, () => ({ x: rnd(100, 1260), y: rnd(-20, 440), r: rnd(.8, 3.2), v: rnd(22, 60), ph: rnd(0, 6.28) }));
-const leaves = Array.from({ length: 10 }, () => ({ x: rnd(100, 1260), y: rnd(0, 420), r: rnd(3, 6), a: rnd(0, 6.28), v: rnd(.6, 1.4) }));
+const snow = Array.from({ length: 260 }, () => ({ x: rnd(100, 1260), y: rnd(-20, 440), r: rnd(.8, 3.2), v: rnd(22, 60), ph: rnd(0, 6.28) }));
+const leaves = Array.from({ length: 14 }, () => ({ x: rnd(100, 1260), y: rnd(0, 420), r: rnd(3, 6), a: rnd(0, 6.28), v: rnd(.6, 1.4) }));
 const cityLights = Array.from({ length: 9 }, () => ({ x: rnd(170, 1200), y: rnd(150, 380), r: rnd(1.5, 3.5), ph: rnd(0, 6.28) }));
 
 let T = 0;
@@ -1852,24 +1852,38 @@ function drawFX(dt) {
       fx.stroke();
     }
     if (c.snow > .02) {
-      fx.fillStyle = night > .5 ? 'rgba(200,210,235,.75)' : 'rgba(255,255,255,.9)';
-      const n = Math.floor(snow.length * Math.min(1, c.snow));
+      const col = night > .5 ? 'rgba(200,210,235,.75)' : 'rgba(255,255,255,.9)';
+      fx.fillStyle = col; fx.strokeStyle = col; fx.lineCap = 'round';
+      const n = Math.floor(snow.length * Math.min(1, c.snow * .55));
+      // rüzgâr kar tanelerini hem hızlandırır hem yana savurur; tipide taneler çizgi gibi uzar
+      const vyK = 1 + wind * 2.6, vxW = wind * (60 + 260 * wind), streak = wind > .6;
+      const gust = 1 + .35 * Math.sin(T * .9) * Math.sin(T * .37 + 1);
       fx.beginPath();
       for (let i = 0; i < n; i++) {
         const f = snow[i];
-        f.y += f.v * dt; f.x += (Math.sin(T * .8 + f.ph) * 12 - wind * 60) * dt;
+        const vx = Math.sin(T * .8 + f.ph) * 12 - vxW * gust, vy = f.v * vyK;
+        f.y += vy * dt; f.x += vx * dt;
         if (f.y > G[1] + G[3]) { f.y = -10; f.x = rnd(G[0], G[0] + G[2] + 100); }
         if (f.x < G[0] - 10) f.x += G[2] + 100;
         if (f.x > G[0] + G[2] + 120) f.x -= G[2] + 100;
-        fx.moveTo(f.x + f.r, f.y); fx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        if (streak) { fx.moveTo(f.x, f.y); fx.lineTo(f.x - vx * .05, f.y - vy * .05); }
+        else { fx.moveTo(f.x + f.r, f.y); fx.arc(f.x, f.y, f.r, 0, Math.PI * 2); }
       }
-      fx.fill();
+      // gündüz beyaz kar beyaz ormanda kaybolmasın: altına ince gri-mavi gölge
+      if (night < .5) {
+        fx.save(); fx.translate(.8, 1.2);
+        fx.fillStyle = fx.strokeStyle = 'rgba(95,110,140,.38)';
+        if (streak) { fx.lineWidth = 2.6; fx.stroke(); } else fx.fill();
+        fx.restore();
+      }
+      if (streak) { fx.lineWidth = 2; fx.stroke(); } else fx.fill();
     }
-    if (wind > .35 && !(c.snow > .3) && !SC.winter) {
-      fx.fillStyle = night > .5 ? 'rgba(40,50,40,.6)' : 'rgba(120,140,60,.75)';
+    // rüzgârda savrulan yapraklar (kışın kuru, kahverengi)
+    if (wind > .35 && (SC.winter || !(c.snow > .3))) {
+      fx.fillStyle = SC.winter ? (night > .5 ? 'rgba(50,35,25,.7)' : 'rgba(150,95,45,.85)') : (night > .5 ? 'rgba(40,50,40,.6)' : 'rgba(120,140,60,.75)');
       for (const L of leaves) {
         L.x -= (90 + 160 * wind) * L.v * dt; L.y += Math.sin(T * 2 + L.a) * 30 * dt + 12 * dt; L.a += dt * 3 * L.v;
-        if (L.x < 100) { L.x = 1300; L.y = rnd(0, 400); }
+        if (L.x < G[0] - 20 || L.y > G[1] + G[3]) { L.x = G[0] + G[2] + rnd(10, 120); L.y = rnd(G[1], G[1] + G[3] - 40); }
         fx.save(); fx.translate(L.x, L.y); fx.rotate(L.a); fx.globalAlpha = wind;
         fx.beginPath(); fx.ellipse(0, 0, L.r, L.r * .45, 0, 0, Math.PI * 2); fx.fill(); fx.restore();
       }
