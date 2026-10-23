@@ -400,6 +400,26 @@ const SCENES = {
     focus: [760, 560], cine: [0, 0, 1420, 830], waveY: 755,
     spots: [[545, 515, 960, 660, .45], [340, 425, 1330, 470, .4], [440, 690, 1120, 790, .9], [0, 650, 430, 948, .4], [1140, 620, 1659, 948, .4]],
     secret: []
+  },
+  cabin: {
+    name: 'Kış kulübesi', files: ['scene3.webp', 'maps3.png', 'disc3.webp', 'sheen3.png', 'arm3.png'],
+    rec: { cx: 672.7, cy: 556, rx: 171.7, ry: 31, labelR: 58 },
+    arm: { pivotX: 816, pivotY: 508, ke: 0.4, startDeg: 46.5, endDeg: 71.5, x: 776, y: 484, w: 188, h: 86 },
+    sheen: [499, 523, 348, 67], spindle: [672.5, 540],
+    panes: [[[754,0],[1071,0],[1069,89],[756,102]], [[747,124],[887,119],[888,420],[749,415]], [[904,120],[1058,112],[1054,428],[905,422]],
+            [[1155,0],[1334,0],[1332,69],[1155,86]], [[1347,0],[1543,0],[1539,69],[1343,70]],
+            [[1149,110],[1324,103],[1313,442],[1141,433]], [[1342,103],[1533,95],[1517,451],[1328,444]]],
+    plant: [[1352,372],[1372,352],[1400,346],[1430,356],[1460,372],[1478,392],[1470,420],[1455,438],[1360,438],[1350,405]],
+    lamp1: [45, 545, .6], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    // aynı kadrajın sabah ve öğle görselleri: zamana göre akşam görseliyle karışır
+    variants: ['scene3m.webp', 'scene3d.webp', 'disc3m.webp', 'disc3d.webp', 'sheen3m.png', 'sheen3d.png', 'arm3d.png'],
+    winter: true,      // kış: yağmur kara döner, kelebek ve karahindiba olmaz
+    noFx: ['wings', 'seeds'],
+    fire: { x: 45, y: 545, rect: [0, 420, 118, 215] },   // şömine: titreyen ışık, sıcak hava dalgası, kıvılcımlar
+    fogRect: [742, 0, 805, 458], cup: [1150, 652, 150], cone: [1248, 512, 100, 103],
+    focus: [600, 560], cine: [0, 0, 1480, 840], waveY: 690,
+    spots: [[500, 520, 1050, 640, .45], [745, 440, 1545, 500, .4], [330, 650, 1300, 800, .9], [0, 600, 330, 948, .4], [1300, 600, 1659, 948, .4]],
+    secret: []
   }
 };
 let SC = SCENES.window;
@@ -514,6 +534,7 @@ uniform vec2 RC, PIV, uSpin;
 uniform float RR, RK, LR, uCurtK, uFade;
 uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
+uniform vec4 uFire, uFireR;   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -558,7 +579,11 @@ vec3 rainGlass(vec2 p){
 vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec3 alb = c;
   c *= 1. - sun * (1. - uDay) * .82 * uSunImg;
-  c *= uAmb;
+  // şöminenin aydınlattığı yer gece kararmaz, ateşle birlikte titrer
+  float fw = 0.;
+  if (uFire.z > 0.) { vec2 fd = (p - uFire.xy) * vec2(1., 1.3); fw = clamp(uFire.z / (1. + pow(length(fd) / 520., 2.)), 0., 1.); }
+  c *= mix(uAmb, vec3(1.), fw);
+  c *= 1. + fw * uFire.w;
   float d1 = length((p - uL1.xy) * vec2(1., 1.2));
   float f1 = uL1.z / (1. + pow(d1 / 640., 2.));
   float d2 = length(p - uL2.xy);
@@ -608,7 +633,21 @@ void main(){
     q.y += sin(p.x * .01 + uT * .8) * .35 * uWind * ext;
     if (uRain > .01) { rg = rainGlass(p); q += rg.xy * uRain * ext; }
   }
+  // şömine: alevin üstünde sıcak hava dalgalanması
+  float fmask = 0.;
+  if (uFire.z > 0.) {
+    vec2 fr = (p - uFireR.xy) / uFireR.zw;
+    if (fr.x > 0. && fr.x < 1. && fr.y > 0. && fr.y < 1.) {
+      fmask = sst(0., .12, fr.x) * sst(1., .75, fr.x) * sst(0., .25, fr.y) * sst(1., .65, fr.y);
+      q.x += (noise(vec2(p.x * .05, p.y * .045 + uT * 3.4)) - .5) * 4. * fmask;
+      q.y += (noise(vec2(p.x * .03 + 7., p.y * .05 + uT * 4.3)) - .5) * 5. * fmask;
+    }
+  }
   vec3 base = sceneTex(q / STAGE).rgb;
+  if (fmask > 0.) {   // alevler titremeyle parlar
+    float fl = sst(.42, .85, base.r) * sst(.05, .3, base.r - base.b);
+    base *= 1. + fl * fmask * (uFire.w * 2.6 + .04 * sin(uT * 23. + p.y * .1));
+  }
   float br = (uRain * 2.2 + uFog * 3.) * ext;
   if (br > .3) {
     base = (base * 2.
@@ -675,7 +714,7 @@ void main(){
     float a = max(disc.a, la);
     col = mix(col, lightInterior(rc, 0., p), a);
     // aks (spindle)
-    vec2 sp = p - uSpin;
+    vec2 sp = (p - uSpin) * (276. / RR);   // aks plağın boyuna göre ölçeklenir
     if (abs(sp.x) < 4.5 && sp.y > 0. && sp.y < 18.) {
       float g = .55 + .45 * cos(sp.x * .6 - .8);
       col = lightInterior(vec3(.62, .64, .66) * g, 0., p);
@@ -1489,6 +1528,11 @@ const WX = {
   fog:   { label: 'Sis', fog: 1, cloud: .7 },
   wind:  { label: 'Rüzgâr', wind: 1, cloud: .3 }
 };
+// kış kulübesinde yağmur kara, fırtına tipiye döner (şimşek olmaz)
+const WINTER_WX = { rain: { label: 'Hafif kar', snow: .55, wind: .1, cloud: .9 }, storm: { label: 'Tipi', snow: 1.35, wind: .9, cloud: 1 } };
+function winterNow() { let m = 'auto'; try { m = sceneMode; } catch (e) {} return !!(SCENES[m] && SCENES[m].winter); }   // sceneMode henüz tanımlı olmayabilir
+function winterWx(wx) { for (const k in WINTER_WX) if (wx === WX[k]) return WINTER_WX[k]; return wx; }
+function wxLabel(k) { return winterNow() && WINTER_WX[k] ? WINTER_WX[k].label : WX[k].label; }
 const TIMES = { auto: 'Oto', live: 'Canlı', dawn: 'Sabah', day: 'Gündüz', dusk: 'Akşam', night: 'Gece' };
 // oto döngü sıraları: arka arkaya benzer durumlar gelmesin diye karışık dizildi
 const CYCLE_T = ['day', 'dusk', 'night', 'dawn'];
@@ -1547,9 +1591,10 @@ function computeTarget() {
     for (let i = 0; i < 3; i++) { u.amb[i] += p.amb[i] * w; u.extTint[i] += p.extTint[i] * w; }
     u.extBright += p.extBright * w; u.night += p.night * w; u.lamp += p.lamp * w; u.day += p.day * w; u.sat += p.sat * w;
   }
-  const wx = atmo.wxMode === 'auto' ? WX[CYCLE_W[atmo.cw % CYCLE_W.length]] : atmo.wxMode === 'live'
+  let wx = atmo.wxMode === 'auto' ? WX[CYCLE_W[atmo.cw % CYCLE_W.length]] : atmo.wxMode === 'live'
     ? (atmo.live ? wxFromCode(atmo.live.code, atmo.live.wind).o : WX.clear)
     : WX[atmo.wxMode];
+  if (winterNow()) wx = winterWx(wx);
   const ov = Math.max(wx.cloud || 0, (wx.rain || 0) * .9, (wx.snow || 0) * .8, wx.fog || 0);
   u.day *= 1 - ov * .78;
   u.sat *= 1 - ov * .42;
@@ -1638,13 +1683,13 @@ function updateAtmoUI() {
   const lv = atmo.live;
   const wxKey = atmo.wxMode === 'live' ? (lv ? wxFromCode(lv.code, lv.wind).key : 'clear') : atmo.wxMode === 'auto' ? CYCLE_W[atmo.cw % CYCLE_W.length] : atmo.wxMode;
   const tName = atmo.timeMode === 'auto' ? 'Oto' : TIMES[atmo.timeMode];
-  const wName = atmo.wxMode === 'auto' ? 'Oto' : atmo.wxMode === 'live' ? 'Canlı' : WX[atmo.wxMode].label;
+  const wName = atmo.wxMode === 'auto' ? 'Oto' : atmo.wxMode === 'live' ? 'Canlı' : wxLabel(atmo.wxMode);
   $('atmoName').textContent = tName === wName ? tName : tName + ' · ' + wName;
   if (atmo.timeMode !== 'live' && atmo.wxMode !== 'live') {
     const tk = atmo.timeMode === 'auto' ? CYCLE_T[atmo.ct % CYCLE_T.length] : atmo.timeMode;
-    $('atmoInfo').textContent = (atmo.timeMode === 'auto' || atmo.wxMode === 'auto' ? 'Oto döngü, 10 sn  ·  şu an ' : 'Şu an ') + TIMES[tk] + ' · ' + WX[wxKey].label;
+    $('atmoInfo').textContent = (atmo.timeMode === 'auto' || atmo.wxMode === 'auto' ? 'Oto döngü, 10 sn  ·  şu an ' : 'Şu an ') + TIMES[tk] + ' · ' + wxLabel(wxKey);
   }
-  if (lv) $('atmoInfo').textContent = `Şu an ${Math.round(lv.temp)}°  ·  ${WX[wxKey].label}  ·  ` +
+  if (lv) $('atmoInfo').textContent = `Şu an ${Math.round(lv.temp)}°  ·  ${wxLabel(wxKey)}  ·  ` +
     `gün doğumu ${lv.sunrise.slice(11, 16)}  ·  batımı ${lv.sunset.slice(11, 16)}`;
   const mk = (box, items, active, onPick) => {
     box.innerHTML = '';
@@ -1654,10 +1699,10 @@ function updateAtmoUI() {
     }
   };
   mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
-  mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.entries(WX).map(([k, v]) => [k, v.label])], atmo.wxMode,
+  mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.keys(WX).map(k => [k, wxLabel(k)])], atmo.wxMode,
     (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
-  mk($('sceneOpts'), [['auto', 'Oto (gündüz pencere, akşam çatı katı)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
-    (k) => { sceneMode = k; store.set('scene', k); updateAtmoUI(); setScene(wantedScene()); });
+  mk($('sceneOpts'), [['auto', 'Oto (karda kulübe, akşam çatı katı, gündüz pencere)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
+    (k) => { sceneMode = k; store.set('scene', k); computeTarget(); setScene(wantedScene()); });
   $('secretRow').style.display = atmo.coffeeFound ? '' : 'none';
   mk($('secretOpts'), [['coffee', '☕ Kahve molası']], atmo.coffee ? 'coffee' : '', () => toggleCoffee());
 }
@@ -1688,7 +1733,7 @@ const autoViz = { list: [], i: 0, t: 0, fade: 1, target: 1 };
 function nextAutoViz() {
   if (!autoViz.list.length || autoViz.i >= autoViz.list.length) {
     // karışık sıra; bir tur bitmeden aynı efekt tekrar gelmez
-    autoViz.list = VIZ.filter(v => v !== 'auto' && v !== 'off');
+    autoViz.list = VIZ.filter(v => v !== 'auto' && v !== 'off' && fxOK(v));
     for (let i = autoViz.list.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [autoViz.list[i], autoViz.list[j]] = [autoViz.list[j], autoViz.list[i]]; }
     if (autoViz.list[0] === vizRun && autoViz.list.length > 1) autoViz.list.push(autoViz.list.shift());
     autoViz.i = 0;
@@ -1769,6 +1814,7 @@ const leaves = Array.from({ length: 10 }, () => ({ x: rnd(100, 1260), y: rnd(0, 
 const cityLights = Array.from({ length: 9 }, () => ({ x: rnd(170, 1200), y: rnd(150, 380), r: rnd(1.5, 3.5), ph: rnd(0, 6.28) }));
 
 let T = 0;
+const fdtFX = (dt) => Math.min(dt, .1);
 function drawFX(dt) {
   const c = atmo.cur || PRESETS.day;
   const W = fxCanvas.width, H = fxCanvas.height, s = view.s * view.dpr;
@@ -1781,6 +1827,7 @@ function drawFX(dt) {
   const needOut = (c.rain > .02) || (c.snow > .02) || wind > .2 || night > .4;
   if (needOut) {
     fx.save(); clipGlass(fx);
+    const G = SC.fogRect;
     if (night > .4) {
       fx.globalCompositeOperation = 'lighter';
       for (const L of cityLights) {
@@ -1798,8 +1845,8 @@ function drawFX(dt) {
       for (let i = 0; i < n; i++) {
         const d = rain[i];
         d.y += d.v * dt; d.x -= d.v * ang * dt;
-        if (d.y > 440) { d.y = rnd(-60, -10); d.x = rnd(100, 1400); }
-        if (d.x < 80) d.x += 1250;
+        if (d.y > G[1] + G[3]) { d.y = rnd(-60, -10); d.x = rnd(G[0], G[0] + G[2] + 150); }
+        if (d.x < G[0] - 20) d.x += G[2] + 150;
         fx.moveTo(d.x, d.y); fx.lineTo(d.x + d.l * ang, d.y - d.l);
       }
       fx.stroke();
@@ -1811,13 +1858,14 @@ function drawFX(dt) {
       for (let i = 0; i < n; i++) {
         const f = snow[i];
         f.y += f.v * dt; f.x += (Math.sin(T * .8 + f.ph) * 12 - wind * 60) * dt;
-        if (f.y > 440) { f.y = -10; f.x = rnd(100, 1300); }
-        if (f.x < 90) f.x += 1180;
+        if (f.y > G[1] + G[3]) { f.y = -10; f.x = rnd(G[0], G[0] + G[2] + 100); }
+        if (f.x < G[0] - 10) f.x += G[2] + 100;
+        if (f.x > G[0] + G[2] + 120) f.x -= G[2] + 100;
         fx.moveTo(f.x + f.r, f.y); fx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
       }
       fx.fill();
     }
-    if (wind > .35 && !(c.snow > .3)) {
+    if (wind > .35 && !(c.snow > .3) && !SC.winter) {
       fx.fillStyle = night > .5 ? 'rgba(40,50,40,.6)' : 'rgba(120,140,60,.75)';
       for (const L of leaves) {
         L.x -= (90 + 160 * wind) * L.v * dt; L.y += Math.sin(T * 2 + L.a) * 30 * dt + 12 * dt; L.a += dt * 3 * L.v;
@@ -1830,12 +1878,30 @@ function drawFX(dt) {
     fx.restore();
   }
 
+  // ---- şömine: ara ara yükselip sönen kıvılcımlar
+  if (SC.fire) {
+    const [fx0, fy0, fw0, fh0] = SC.fire.rect;
+    if (fireSparks.length < 14 && Math.random() < fdtFX(dt) * (1.2 + (isPlaying ? levels.bass * 6 : 0)))
+      fireSparks.push({ x: fx0 + fw0 * rnd(.15, .8), y: fy0 + fh0 * rnd(.55, .8), vx: rnd(-8, 14), vy: rnd(-70, -35), t: 0, l: rnd(.8, 2), w: rnd(0, 6) });
+    fx.globalCompositeOperation = 'lighter';
+    for (let i = fireSparks.length - 1; i >= 0; i--) {
+      const e = fireSparks[i]; e.t += dt; const k = e.t / e.l;
+      if (k >= 1) { fireSparks.splice(i, 1); continue; }
+      e.x += (e.vx + Math.sin(e.t * 4 + e.w) * 14) * dt; e.y += e.vy * dt;
+      const a = (1 - k) * (.55 + .45 * Math.sin(e.t * 22 + e.w));
+      GA_DESC.set.call(fx, clamp(a * .35, 0, 1)); fx.drawImage(GLOW, e.x - 5, e.y - 5, 10, 10);
+      GA_DESC.set.call(fx, clamp(a, 0, 1)); fx.fillStyle = k < .35 ? 'rgb(255,226,150)' : 'rgb(255,140,60)';
+      fx.beginPath(); fx.arc(e.x, e.y, 1.3 * (1 - k * .5), 0, TAU2); fx.fill();
+    }
+    GA_DESC.set.call(fx, 1); fx.globalCompositeOperation = 'source-over';
+  }
+
   // ---- müzik görselleri
   if (vizRun === 'off') return;
   fx.globalCompositeOperation = 'lighter';
   vizMul = autoViz.fade;
   fx.globalAlpha = 1;
-  const fn = VIZ_DRAW[vizRun];
+  const fn = VIZ_DRAW[fxOK(vizRun) ? vizRun : 'bokeh'];   // sahneye uymayan efekt yerine bokeh
   // güneş yoksa (gece ya da kapalı gündüz) güneşe bağlı efektler lamba haline geçer
   const dimN = sunGone(c) ? 1 : night;
   const nightLike = SC.variants ? Math.max(night, (c.vEve || 0) > .5 ? .6 : 0) : night;   // akşam görselinde gece efektleri
@@ -2070,7 +2136,8 @@ const GLARE = (() => {
 })();
 // mum: sahnenin önünde, masanın sol tarafında hayali bir mum
 const CANDLE_X = 300, CANDLE_Y = 980;
-let candleF = .7, candleN = 0;
+let candleF = .7, candleN = 0, fireF = 0;
+const fireSparks = [];
 const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
 // buğu katmanı: camın yarı çözünürlüğü (545x216), yumuşak ölçeklenir
@@ -2186,6 +2253,7 @@ const candlePools = [
 
 // gündüz ve gece farklı davranan modların adları da değişir
 // ---- doğa mantığı: hangi efekt hangi koşulda mümkün
+function fxOK(id) { return !(SC.noFx && SC.noFx.includes(id)); }
 const SUN_FX = new Set(['rays', 'dust', 'leaves', 'prism', 'glints', 'pulse']);   // güneş ister, yoksa lambaya döner
 function sunGone(c) { return SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5 || (c.day || 0) < .3; }
 function overcast(c) { return (c.ov || 0) > .5; }
@@ -2198,9 +2266,11 @@ const VIZ_DUAL = {
 };
 function vizLabel(id) {
   if (id === 'auto') return 'Oto · ' + vizLabel(vizRun);
+  if (id !== 'off' && !fxOK(id)) return 'Bokeh';
   const c = atmo.target || atmo.cur || {}, n = SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5, dim = sunGone(c);
   switch (id) {
-    case 'fireflies': return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
+    case 'fireflies': if (SC.winter) return n ? 'Kor zerreleri' : 'Işık zerreleri';
+      return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
     case 'sky': return n ? (overcast(c) ? 'Şehir ışıkları' : 'Kayan yıldız') : (overcast(c) ? 'Bulutlar' : 'Bulut gölgesi');
     case 'wings': return !n ? 'Kelebekler' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
     case 'mirror': return overcast(c) ? 'Cam yansıması' : n ? 'Ay ışığı' : 'Cam parıltısı';
@@ -2264,7 +2334,7 @@ const VIZ_DRAW = {
       const sp = isN ? f.sp : f.sp * .45;
       f.x += (Math.cos(f.a) * sp - wind * 25) * dt; f.y += (Math.sin(f.a) * sp * .6 - (isN ? 0 : 5)) * dt;
       if (f.x < 60) f.x = 1580; if (f.x > 1600) f.x = 80; if (f.y < 20) f.y = 800; if (f.y > 840) f.y = 30;
-      if (isN && precip(c)) {
+      if (isN && (precip(c) || SC.winter)) {
         // yağmurlu/karlı gece: ateş böceği olmaz; lamba ışığında süzülen sıcak zerreler
         const a = .18 + .12 * Math.sin(T * .8 + f.ph) + levels.high * .9;
         fx.globalAlpha = clamp(a * .5, 0, .5); fx.drawImage(GLOW, f.x - 6, f.y - 6, 12, 12);
@@ -2604,6 +2674,7 @@ const VIZ_DRAW = {
   // Gökkuşağı (gündüz: camdan kırılan ışık) / Şömine (gece: yandan vuran ateş ışığı ve korlar)
   prism(dt, c, night) {
     if (night > .5) {
+      fx.save(); if (SC.fire) fx.translate(SC.fire.x - 40, SC.fire.y - 840);
       const f = .75 + .2 * Math.sin(T * 7.3) * Math.sin(T * 4.1 + 1) + .12 * Math.sin(T * 17) + levels.bass * .5;
       fx.globalAlpha = clamp(.32 * f, 0, .7); fx.drawImage(PUFF_NIGHT, -420, 380, 1100, 700);
       fx.globalAlpha = clamp(.2 * f, 0, .5); fx.drawImage(GLOW, -260, 520, 700, 500);
@@ -2618,6 +2689,7 @@ const VIZ_DRAW = {
         fx.fillStyle = k < .4 ? 'rgb(255,220,140)' : 'rgb(255,130,60)';
         fx.beginPath(); fx.arc(e.x, e.y, 1.6 * (1 - k * .5), 0, TAU2); fx.fill();
       }
+      fx.restore();
       return;
     }
     const sunny = clamp((c.day || 0) * 1.3, .2, 1);
@@ -2669,6 +2741,11 @@ function frame(now) {
   }
   const cTarget = (.74 + .24 * Math.sin(T * 7.3) * Math.sin(T * 3.7 + 1) + .14 * Math.sin(T * 1.3) + (Math.random() - .5) * .2 + levels.high * .35 + levels.bass * .2) * (1 - dip);
   candleF += (cTarget - candleF) * Math.min(1, fdt * (dip > .05 ? 9 : 16));
+  if (SC.fire) {
+    const fT = .07 * Math.sin(T * 5.1) * Math.sin(T * 2.3 + 1) + .035 * Math.sin(T * 11.7 + .5) + .03 * Math.sin(T * .7) + (Math.random() - .5) * .05
+      + (isPlaying ? levels.bass * .14 : 0);
+    fireF += (fT - fireF) * Math.min(1, fdt * 10);
+  }
   // esinti: perde salınımının şiddeti
   const kTarget = vizRun === 'breeze' ? (.45 + levels.energy * .7) * autoViz.fade : 0;
   curtainS += (kTarget - curtainS) * Math.min(1, fdt * .8);
@@ -2690,6 +2767,8 @@ function setSceneUniforms() {
   gl.uniform4fv(U.SHB, SC.sheen); gl.uniform2fv(U.uSpin, SC.spindle);
   gl.uniform3fv(U.uL1, SC.lamp1); gl.uniform3fv(U.uL2, SC.lamp2); gl.uniform1f(U.uCurtK, SC.curtain);
   gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
+  if (SC.fire) { gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, 1, fireF); gl.uniform4fv(U.uFireR, SC.fire.rect); }
+  else gl.uniform4f(U.uFire, 0, 0, 0, 0);
   gl.uniform1f(U.uFade, sceneFade);
   const cc = atmo.cur || {};
   if (SC.variants) { const e = cc.vEve ?? 1, m = cc.vM || 0, d = cc.vD || 0, t = (e + m + d) || 1; gl.uniform3f(U.uWv, e / t, m / t, d / t); gl.uniform1f(U.uSunImg, (m + d) / t); }
@@ -2744,6 +2823,7 @@ function bindSceneTex(imgs) {
 function wantedScene() {
   if (sceneMode !== 'auto') return sceneMode;
   const t = atmo.target || atmo.cur || {};
+  if ((t.snow || 0) > .4) return 'cabin';                                       // kar yağıyorsa kış kulübesi
   return ((t.night || 0) > .35 || (t.lamp || 0) > .5) ? 'attic' : 'window';   // akşam ve gece: çatı katı
 }
 function drawGL(jitter) {
@@ -3439,11 +3519,14 @@ $('pickBtn').onclick = pickFolder;
 $('changeDir').onclick = () => { closeSheets(); pickFolder(); };
 $('atmoBtn').onclick = () => { updateAtmoUI(); openSheet('atmoSheet'); };
 $('vizBtn').onclick = () => {
-  setViz(VIZ[(VIZ.indexOf(vizMode) + 1) % VIZ.length]);
+  let i = VIZ.indexOf(vizMode);
+  do { i = (i + 1) % VIZ.length; } while (!fxOK(VIZ[i]));
+  setViz(VIZ[i]);
 };
 function renderVizMenu() {
   const box = $('vizOpts'); box.innerHTML = '';
   for (const [id, name] of VIZ_LIST) {
+    if (!fxOK(id)) continue;   // bu sahnede olmayan efekt menüde görünmez
     const b = document.createElement('button');
     b.className = 'opt' + (id === vizMode ? ' on' : '');
     b.textContent = VIZ_DUAL[id] ? VIZ_DUAL[id][0] + ' / ' + VIZ_DUAL[id][1] : name;
