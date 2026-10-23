@@ -355,6 +355,8 @@
   <div class="opts" id="timeOpts"></div>
   <div class="lbl">Hava</div>
   <div class="opts" id="wxOpts"></div>
+  <div class="lbl">Sahne</div>
+  <div class="opts" id="sceneOpts"></div>
   <div id="secretRow" style="display:none"><div class="lbl">Gizli</div><div class="opts" id="secretOpts"></div></div>
 </section>
 
@@ -367,18 +369,43 @@
    Plakçı  |  sahne sabitleri (orijinal görsel piksel koordinatları)
    =========================================================== */
 const STAGE_W = 1659, STAGE_H = 948;
-const REC = { cx: 798, cy: 535, rx: 276, ry: 76, labelR: 103 };
-const ARM = { pivotX: 1121, pivotY: 528, ke: 0.6, startDeg: 53, endDeg: 72, x: 1076, y: 446, w: 102, h: 213 };
-const SHEEN_BOX = [520, 457, 556, 156];
+/* ---------- sahneler: her biri kendi görseli, plağı, kolu, camı ve ışıklarıyla ---------- */
+const SCENES = {
+  window: {
+    name: 'Pencere kenarı', files: ['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'],
+    rec: { cx: 798, cy: 535, rx: 276, ry: 76, labelR: 103 },
+    arm: { pivotX: 1121, pivotY: 528, ke: 0.6, startDeg: 53, endDeg: 72, x: 1076, y: 446, w: 102, h: 213 },
+    sheen: [520, 457, 556, 156], spindle: [798, 516],
+    panes: [[[146,0],[676,0],[676,420],[146,428]], [[779,0],[1224,0],[1218,412],[779,418]]],
+    plant: [[141,336],[160,312],[188,293],[198,283],[201,279],[241,266],[272,270],[291,289],[318,292],
+      [345,309],[368,336],[376,355],[366,370],[392,361],[415,365],[438,378],[457,401],[466,426],[141,426]],
+    lamp1: [-80, 160, 1], lamp2: [1610, 330, .55], curtain: 1, dark: 1, lampK: 1,
+    fogRect: [140, 0, 1090, 432], cup: [1569, 789, 205], cone: [1333, 574, 132, 136],
+    focus: [875, 535], cine: [0, 60, 1240, 890], waveY: 800,
+    spots: [[530, 510, 1200, 660, .45], [150, 418, 1230, 470, .4], [460, 690, 1290, 840, .9], [0, 760, 440, 948, .4], [1310, 640, 1659, 948, .4]],
+    secret: [[470, 300, 625, 475]]
+  },
+  attic: {
+    name: 'Çatı katı', files: ['scene2.webp', 'maps2.png', 'disc2.webp', 'sheen2.png', 'arm2.png'],
+    rec: { cx: 745, cy: 581, rx: 211, ry: 65, labelR: 63 },
+    arm: { pivotX: 1007, pivotY: 528, ke: 0.4, startDeg: 30, endDeg: 56, x: 994, y: 520, w: 60, h: 116 },
+    sheen: [532, 514, 426, 134], spindle: [745, 562],
+    panes: [[[338,0],[790,0],[790,98],[356,98]], [[362,128],[788,128],[787,414],[406,414]],
+            [[860,0],[1338,0],[1328,97],[860,97]], [[860,128],[1315,128],[1281,412],[860,412]]],
+    plant: [[355,235],[420,215],[470,300],[480,420],[355,420]],
+    lamp1: [55, 255, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    fogRect: [338, 0, 1000, 416], cup: [1285, 714, 185], cone: [1462, 458, 132, 136],
+    focus: [760, 560], cine: [0, 0, 1420, 830], waveY: 755,
+    spots: [[545, 515, 960, 660, .45], [340, 425, 1330, 470, .4], [440, 690, 1120, 790, .9], [0, 650, 430, 948, .4], [1140, 620, 1659, 948, .4]],
+    secret: []
+  }
+};
+let SC = SCENES.window;
+const REC = Object.assign({}, SC.rec);
+const ARM = Object.assign({}, SC.arm);
 const RPM = 27; // görsel dönüş hızı (gerçek 33⅓, gözde biraz sakin dursun)
 const AUDIO_RE = /\.(mp3|m4a|aac|flac|ogg|oga|opus|wav)$/i;
 // pencere camları ve camın önündeki bitki (efekt kırpma için)
-const PANES = [
-  [[146,0],[676,0],[676,420],[146,428]],
-  [[779,0],[1224,0],[1218,412],[779,418]]
-];
-const PLANT = [[141,336],[160,312],[188,293],[198,283],[201,279],[241,266],[272,270],[291,289],[318,292],
-  [345,309],[368,336],[376,355],[366,370],[392,361],[415,365],[438,378],[457,401],[466,426],[141,426]];
 
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -418,24 +445,25 @@ function computeView() {
   if (view.portrait && cineMode) {
     // sinema: sahnenin x 0-1240 / y 60-890 bölümü tam genişlikte (pikabın önündeki dalga da kadrajda), üst ve altta bantlar
     const T0 = 62 + (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0);
-    view.s = vw / 1240;
-    view.tx = 0;
-    view.ty = T0 - 60 * view.s;
-    const bot = T0 + 830 * view.s;
+    const [cx0, cy0, cx1, cy1] = SC.cine;
+    view.s = vw / (cx1 - cx0);
+    view.tx = -cx0 * view.s;
+    view.ty = T0 - cy0 * view.s;
+    const bot = T0 + (cy1 - cy0) * view.s;
     const r = document.documentElement.style;
     r.setProperty('--cine-top', T0 + 'px'); r.setProperty('--cine-bot', bot + 'px');
     r.setProperty('--scene-h', (bot + 48) + 'px');
   } else if (view.portrait) {
     // dikey: pikap genişliği ekranı doldursun, sahne üstte
     view.s = Math.max(vw / 910, vh * .5 / STAGE_H);
-    view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
+    view.tx = clamp(vw / 2 - SC.focus[0] * view.s, vw - STAGE_W * view.s, 0);
     view.ty = 0;
     document.documentElement.style.setProperty('--scene-h', (STAGE_H * view.s) + 'px');
   } else {
     // yatay: sahne ekranı kaplasın, pikap ortada
     view.s = Math.max(vw / STAGE_W, vh / STAGE_H) * 1.02;
-    view.tx = clamp(vw / 2 - 875 * view.s, vw - STAGE_W * view.s, 0);
-    view.ty = clamp(vh * 0.44 - 535 * view.s, vh - STAGE_H * view.s, 0);
+    view.tx = clamp(vw / 2 - SC.focus[0] * view.s, vw - STAGE_W * view.s, 0);
+    view.ty = clamp(vh * 0.44 - SC.focus[1] * view.s, vh - STAGE_H * view.s, 0);
   }
   // yatay ekranda kontroller plağın merkezine hizalanır
   const midX = clamp(view.tx + REC.cx * view.s, vw * .36, vw * .6);
@@ -476,11 +504,11 @@ uniform float uT, uRot, uArmA, uArmLift, uKe;
 uniform vec3 uAmb, uExtTint, uLampCol;
 uniform float uExtBright, uNight, uLamp, uDay, uSat, uFog, uRain, uSnow, uWind, uFlash, uPulse, uGlow, uCandle, uCurtain;
 const vec2 STAGE = vec2(1659., 948.);
-const vec2 RC = vec2(798., 535.);
-const float RR = 276., RK = 76./276., LR = 103.;
-const vec4 SHB = vec4(520., 457., 556., 156.);
-const vec4 ARMB = vec4(1076., 446., 102., 213.);
-const vec2 PIV = vec2(1121., 528.);
+// sahneye göre değişenler
+uniform vec2 RC, PIV, uSpin;
+uniform float RR, RK, LR, uCurtK, uFade;
+uniform vec4 SHB, ARMB, uFogRect, uConeR;
+uniform vec3 uL1, uL2, uCupS;
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 float sst(float a, float b, float x){ float t = clamp((x - a) / (b - a), 0., 1.); return t * t * (3. - 2. * t); }
@@ -525,17 +553,15 @@ vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec3 alb = c;
   c *= 1. - sun * (1. - uDay) * .82;
   c *= uAmb;
-  vec2 L1 = vec2(-80., 160.);
-  float d1 = length((p - L1) * vec2(1., 1.2));
-  float f1 = 1. / (1. + pow(d1 / 640., 2.));
-  vec2 L2 = vec2(1610., 330.);
-  float d2 = length(p - L2);
-  float f2 = .55 / (1. + pow(d2 / 430., 2.));
+  float d1 = length((p - uL1.xy) * vec2(1., 1.2));
+  float f1 = uL1.z / (1. + pow(d1 / 640., 2.));
+  float d2 = length(p - uL2.xy);
+  float f2 = uL2.z / (1. + pow(d2 / 430., 2.));
   float lamp = uLamp * (1. + uPulse * .07 + uGlow * 1.6);
   c += alb * sun * uGlow * uDay * 1.4;
   c *= 1. + uGlow * .16;                    // ışık nabzı: güneş lekeleri ritimle parlar
   c += alb * uLampCol * lamp * (f1 + f2) * 1.2;
-  c += uLampCol * lamp * .22 * exp(-d2 / 150.);          // perde arkasındaki lambanın parıltısı
+  c += uLampCol * lamp * .4 * uL2.z * exp(-d2 / 150.);   // perde arkasındaki lambanın parıltısı
   c += uFlash * .22 * vec3(.75, .8, 1.) * alb;
   // mum ışığı: sahnenin önünde, masanın solunda titreyen sıcak kaynak
   vec2 dcn = (p - vec2(300., 1000.)) * vec2(1., 1.25);
@@ -556,7 +582,7 @@ void main(){
   if (uCurtain > .001) {
     float cl = sst(112., 92., p.x);
     float cr = sst(1348., 1368., p.x) * sst(560., 470., p.y);
-    float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.) * (1. - mp.b);   // bitkinin üstünde perde dalgası yok
+    float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.) * (1. - mp.b) * uCurtK;   // bitkinin üstünde perde dalgası yok
     q.x += (sin(p.y * .017 - uT * .75 + p.x * .02) * 6. + sin(p.y * .041 - uT * 1.25) * 2.) * uCurtain * cm;
     // soldaki bitki: saksıdan yukarı doğru artan hafif salınım
     float pm = mp.b;
@@ -600,7 +626,7 @@ void main(){
 
   // buğu: sadece camda (kenarlardan içeri çekilmiş), bitkinin olduğu yerde yok
   if (uFogA > .005 && ext > .01) {
-    vec4 fg = texture(uFogTex, (p - vec2(140., 0.)) / vec2(1090., 432.));
+    vec4 fg = texture(uFogTex, (p - uFogRect.xy) / uFogRect.zw);
     float fm = sst(.55, .98, ext) * (1. - sst(.3, .85, mp.b));
     e = mix(e, fg.rgb * mix(1., .55 + uLamp * .5, uNight), fg.a * uFogA * fm);
   }
@@ -608,15 +634,16 @@ void main(){
 
   // ---- gizli kahve: kitabın yanında, masada fincan ve kozalak (ışığa göre aydınlatılır)
   if (uCoffee > .005) {
-    vec2 sdp = p - vec2(1574., 793.); sdp = mat2(.998, -.06, .06, .998) * sdp;   // gölge de tabakla aynı açıda
-    vec2 sd = sdp / vec2(91., 15.);
+    float ck = uCupS.z / 205.;
+    vec2 sdp = p - uCupS.xy - vec2(5., 4.) * ck; sdp = mat2(.998, -.06, .06, .998) * sdp;   // gölge de tabakla aynı açıda
+    vec2 sd = sdp / (vec2(91., 15.) * ck);
     col *= 1. - .34 * uCoffee * exp(-dot(sd, sd));
-    vec2 ku = (p - vec2(1333., 574.)) / vec2(132., 136.);   // kozalak kitabın üstünde, dik
+    vec2 ku = (p - uConeR.xy) / uConeR.zw;   // kozalak kitabın üstünde, dik
     if (all(greaterThan(ku, vec2(0.))) && all(lessThan(ku, vec2(1.)))) {
       vec4 kp = texture(uCone, ku);
       col = mix(col, lightInterior(kp.rgb, 0., p), kp.a * uCoffee);
     }
-    vec2 cu = (p - vec2(1467., 608.)) / vec2(205., 205.);
+    vec2 cu = (p - (uCupS.xy - vec2(.498, .883) * uCupS.z)) / uCupS.z;
     if (all(greaterThan(cu, vec2(0.))) && all(lessThan(cu, vec2(1.)))) {
       vec4 cp = texture(uCup, cu);
       vec3 lit = lightInterior(cp.rgb, 0., p);
@@ -641,7 +668,7 @@ void main(){
     float a = max(disc.a, la);
     col = mix(col, lightInterior(rc, 0., p), a);
     // aks (spindle)
-    vec2 sp = p - vec2(798., 516.);
+    vec2 sp = p - uSpin;
     if (abs(sp.x) < 4.5 && sp.y > 0. && sp.y < 18.) {
       float g = .55 + .45 * cos(sp.x * .6 - .8);
       col = lightInterior(vec3(.62, .64, .66) * g, 0., p);
@@ -655,7 +682,7 @@ void main(){
   vec2 off = vec2(-5., 8.) + vec2(-1., 1.6) * uArmLift;
   vec2 qs = inv * (p - off - PIV) + PIV;
   vec2 us = (qs - ARMB.xy) / ARMB.zw;
-  if (all(greaterThan(us, vec2(0.))) && all(lessThan(us, vec2(1.))) && p.y > 452.) {
+  if (all(greaterThan(us, vec2(0.))) && all(lessThan(us, vec2(1.))) && p.y > ARMB.y + 6.) {
     float sha = texture(uArm, us, 1.5).a;
     col *= 1. - sha * .32 * (.35 + .65 * max(uDay, uLamp * .8));
   }
@@ -668,7 +695,7 @@ void main(){
 
   // ---- fincandan yükselen buhar
   if (uCoffee > .005) {
-    vec2 sp = (p - vec2(1570., 699.)) / 1.55;   // fincan ağzı (fincan büyüdü: buhar da ölçeklenir)
+    vec2 sp = (p - uCupS.xy - vec2(1., -90.) * (uCupS.z / 205.)) / (1.55 * uCupS.z / 205.);   // fincan ağzı
     float h = -sp.y;
     if (h > -4. && h < 300. && abs(sp.x) < 120.) {
       float t = h / 300., st = 0.;
@@ -694,6 +721,7 @@ void main(){
   vec2 vv = p / STAGE - .5;
   col *= 1. - dot(vv, vv) * .35;
   col += (hash(p + fract(uT) * 91.) - .5) * .018;
+  col *= 1. - uFade;                       // sahne geçişi: oda kararır
   outC = vec4(col, 1.);
 }`;
 
@@ -1532,6 +1560,7 @@ function computeTarget() {
   if (atmo.cur && sig !== atmo.sig) { atmo.from = JSON.parse(JSON.stringify(atmo.cur)); atmo.tt = 0; }
   atmo.sig = sig;
   atmo.target = u;
+  if (typeof setScene === 'function' && glReady && !sceneBusy && wantedScene() !== sceneId) setScene(wantedScene());
   if (typeof vizLabel === 'function') $('vizName').textContent = vizLabel(vizMode);
   if (!atmo.cur) atmo.cur = JSON.parse(JSON.stringify(u));
   updateAtmoUI();
@@ -1617,6 +1646,8 @@ function updateAtmoUI() {
   mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
   mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.entries(WX).map(([k, v]) => [k, v.label])], atmo.wxMode,
     (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
+  mk($('sceneOpts'), [['auto', 'Oto (gündüz pencere, akşam çatı katı)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
+    (k) => { sceneMode = k; store.set('scene', k); updateAtmoUI(); setScene(wantedScene()); });
   $('secretRow').style.display = atmo.coffeeFound ? '' : 'none';
   mk($('secretOpts'), [['coffee', '☕ Kahve molası']], atmo.coffee ? 'coffee' : '', () => toggleCoffee());
 }
@@ -1670,11 +1701,12 @@ function stepAutoViz(dt) {
 const GA_DESC = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
 let vizMul = 1;
 Object.defineProperty(fx, 'globalAlpha', { get() { return GA_DESC.get.call(this); }, set(v) { GA_DESC.set.call(this, v * vizMul); } });
-const paneClip = (() => {
+function buildPaneClip() {
   const p = new Path2D();
-  for (const poly of PANES.concat([PLANT])) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
+  for (const poly of SC.panes.concat([SC.plant])) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
   return p;
-})();
+}
+let paneClip = buildPaneClip();
 
 // önceden çizilmiş ışık sprite'ları (her karede gradient üretmemek için)
 function makeOrb(rgb, ring) {
@@ -2122,11 +2154,14 @@ const SPOT = (() => {
   x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c;
 })();
 // lekelerin düştüğü yüzeyler: pikabın üstü, pervaz, ön yüz, masa
-const SPOT_AREAS = [[530, 510, 1200, 660, .45], [150, 418, 1230, 470, .4], [460, 690, 1290, 840, .9], [0, 760, 440, 948, .4], [1310, 640, 1659, 948, .4]];
-const spots = Array.from({ length: 56 }, (_, i) => {
-  const A = SPOT_AREAS[i % SPOT_AREAS.length];
-  return { x: rnd(A[0], A[2]), y: rnd(A[1], A[3]), k: A[4], r: rnd(6, 20), f: rnd(.6, 2.2), ph: rnd(0, 6.28), b: i % BANDS };
-});
+let spots = [];
+function rebuildSpots() {
+  spots = Array.from({ length: 56 }, (_, i) => {
+    const A = SC.spots[i % SC.spots.length];
+    return { x: rnd(A[0], A[2]), y: rnd(A[1], A[3]), k: A[4], r: rnd(6, 20), f: rnd(.6, 2.2), ph: rnd(0, 6.28), b: i % BANDS };
+  });
+}
+rebuildSpots();
 const candlePools = [
   { x: 800, y: 590, w: 900, h: 260, a: .38, ph: 0 }, { x: 870, y: 760, w: 1000, h: 220, a: .3, ph: 2 },
   { x: 600, y: 440, w: 900, h: 120, a: .26, ph: 4 }, { x: 1150, y: 640, w: 500, h: 200, a: .26, ph: 1 }
@@ -2183,7 +2218,7 @@ const VIZ_DRAW = {
       for (let i = 0; i <= 72; i++) {
         const x = 260 + i * 16.5, bi = Math.floor((i / 72) * (BANDS - 1)), env = Math.sin(Math.PI * i / 72);
         const amp = (6 + bands[bi] * 70 + levels.bass * 30 * (l === 0)) * env;
-        const y = 800 + l * 18 + Math.sin(i * .28 + T * (1.2 + l * .5) + l) * amp;
+        const y = SC.waveY + l * 18 + Math.sin(i * .28 + T * (1.2 + l * .5) + l) * amp;
         i ? fx.lineTo(x, y) : fx.moveTo(x, y);
       }
       fx.stroke();
@@ -2632,6 +2667,54 @@ function frame(now) {
   }
 }
 function fmt(s) { s = Math.floor(s || 0); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function setSceneUniforms() {
+  gl.uniform2f(U.RC, REC.cx, REC.cy); gl.uniform1f(U.RR, REC.rx); gl.uniform1f(U.RK, REC.ry / REC.rx); gl.uniform1f(U.LR, REC.labelR);
+  gl.uniform2f(U.PIV, ARM.pivotX, ARM.pivotY); gl.uniform4f(U.ARMB, ARM.x, ARM.y, ARM.w, ARM.h);
+  gl.uniform4fv(U.SHB, SC.sheen); gl.uniform2fv(U.uSpin, SC.spindle);
+  gl.uniform3fv(U.uL1, SC.lamp1); gl.uniform3fv(U.uL2, SC.lamp2); gl.uniform1f(U.uCurtK, SC.curtain);
+  gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
+  gl.uniform1f(U.uFade, sceneFade);
+}
+/* ---------- sahne değişimi: oda kararır, yeni oda ışıkla açılır; plak ve müzik kesilmez ---------- */
+let sceneId = 'window', sceneFade = 0, sceneBusy = false, sceneMode = store.get('scene', 'auto');
+const sceneImgs = {};
+async function loadSceneImgs(id) {
+  if (!sceneImgs[id]) sceneImgs[id] = await Promise.all(SCENES[id].files.map(loadImg));
+  return sceneImgs[id];
+}
+function applySceneConfig(id) {
+  sceneId = id; SC = SCENES[id];
+  Object.assign(REC, SC.rec); Object.assign(ARM, SC.arm);
+  paneClip = buildPaneClip();
+  rebuildSpots();
+  if (armMode === 'tracking' || armMode === 'paused') armA = progressAngle();
+  computeView();
+}
+async function setScene(id, instant) {
+  if (!SCENES[id] || (id === sceneId && !instant) || sceneBusy) return;
+  sceneBusy = true;
+  try {
+    const imgs = await loadSceneImgs(id);
+    if (!instant && glReady) await tweenReal(.7, k => { sceneFade = k; fxCanvas.style.opacity = 1 - k; });
+    if (glReady) { const [sc, mp, ds, sh, am] = imgs; updateTex('uScene', sc); updateTex('uMaps', mp); updateTex('uDisc', ds); updateTex('uSheen', sh); updateTex('uArm', am); }
+    applySceneConfig(id);
+    if (!instant && glReady) await tweenReal(1.2, k => { sceneFade = 1 - k; fxCanvas.style.opacity = k; });
+    sceneFade = 0; fxCanvas.style.opacity = 1;
+  } catch (e) { console.warn('sahne', e); }
+  sceneBusy = false;
+  // geçiş sürerken istek değiştiyse onu uygula
+  const want = wantedScene(); if (want !== sceneId) setScene(want);
+}
+// gerçek zamanlı geçiş (arka planda da biter)
+function tweenReal(dur, fn) {
+  if (document.hidden) { fn(1); return Promise.resolve(); }
+  return new Promise(res => { const t0 = performance.now(); const st = (n) => { const k = Math.min(1, (n - t0) / 1000 / dur); fn(ease(k)); if (k < 1) requestAnimationFrame(st); else res(); }; requestAnimationFrame(st); });
+}
+function wantedScene() {
+  if (sceneMode !== 'auto') return sceneMode;
+  const t = atmo.target || atmo.cur || {};
+  return ((t.night || 0) > .35 || (t.lamp || 0) > .5) ? 'attic' : 'window';   // akşam ve gece: çatı katı
+}
 function drawGL(jitter) {
   const c = atmo.cur || PRESETS.day;
   gl.viewport(0, 0, glCanvas.width, glCanvas.height);
@@ -2645,9 +2728,12 @@ function drawGL(jitter) {
   gl.uniform1f(U.uKe, ARM.ke);
   if (vizRun !== 'sky' || c.night > .5) cloudShade *= .95;
   const cs = cloudShade;
-  gl.uniform3f(U.uAmb, c.amb[0] * (1 - cs * .2), c.amb[1] * (1 - cs * .18), c.amb[2] * (1 - cs * .1));
-  gl.uniform3fv(U.uExtTint, c.extTint); gl.uniform3fv(U.uLampCol, LAMP_COL);
-  gl.uniform1f(U.uExtBright, c.extBright * (1 - cs * .32)); gl.uniform1f(U.uNight, c.night); gl.uniform1f(U.uLamp, c.lamp);
+  // görseli zaten akşam olan sahnede gece karartması hafifletilir (dk: 1 = tam, 0.3 = hafif)
+  const dk = SC.dark, mixD = (v) => 1 + (v - 1) * dk;
+  gl.uniform3f(U.uAmb, mixD(c.amb[0]) * (1 - cs * .2), mixD(c.amb[1]) * (1 - cs * .18), mixD(c.amb[2]) * (1 - cs * .1));
+  gl.uniform3f(U.uExtTint, mixD(c.extTint[0]), mixD(c.extTint[1]), mixD(c.extTint[2])); gl.uniform3fv(U.uLampCol, LAMP_COL);
+  gl.uniform1f(U.uExtBright, mixD(c.extBright) * (1 - cs * .32)); gl.uniform1f(U.uNight, c.night * dk); gl.uniform1f(U.uLamp, c.lamp * SC.lampK);
+  setSceneUniforms();
   gl.uniform1f(U.uDay, c.day * (1 - cs * .85)); gl.uniform1f(U.uSat, c.sat * (1 - cs * .3));
   gl.uniform1f(U.uFog, c.fog || 0); gl.uniform1f(U.uRain, c.rain || 0); gl.uniform1f(U.uSnow, c.snow || 0);
   gl.uniform1f(U.uWind, c.wind || 0); gl.uniform1f(U.uFlash, atmo.flash || 0);
@@ -3359,8 +3445,8 @@ $('orderBtn').onclick = () => {
 let secretTaps = 0, secretLast = 0;
 // dikey ekranda kamera: sahne ekrandan geniş. Parmakla sağa sola kaydırılır;
 // dokunulmayınca yavaşça saksıdan masaya ve geri süzülür (sinematik pan)
-const cam = { x: 875, target: 875, holdUntil: 0, t: 0, dragging: false,
-  locked: store.get('camLock', false), lockX: store.get('camX', 875) };
+const cam = { x: SC.focus[0], target: SC.focus[0], holdUntil: 0, t: 0, dragging: false,
+  locked: store.get('camLock', false), lockX: store.get('camX', SC.focus[0]) };
 if (cam.locked) cam.x = cam.target = cam.lockX;
 // kilit: kamera turu durur, görüntü seçtiğin yerde kalır (sürükleyerek yeri değiştirebilirsin)
 function setCamIcon() {
@@ -3441,7 +3527,8 @@ function stepCam(dt) {
     if (Math.hypot(dx, dy) < 12) {
       const [x, y] = toStage(e.clientX, e.clientY);
       const r = Math.hypot((x - REC.cx) / REC.rx, (y - REC.cy) / REC.ry);
-      if ((x > 470 && x < 625 && y > 300 && y < 475) || (x > 1500 && x < 1655 && y > 640 && y < 820)) {
+      const cx = SC.cup[0], cy = SC.cup[1], cr = SC.cup[2];
+      if (SC.secret.some(r => x > r[0] && x < r[2] && y > r[1] && y < r[3]) || (x > cx - cr * .45 && x < cx + cr * .45 && y > cy - cr * .85 && y < cy + cr * .15)) {
         const now = performance.now();
         secretTaps = (now - secretLast < 650) ? secretTaps + 1 : 1; secretLast = now;
         if (secretTaps >= 3) { secretTaps = 0; toggleCoffee(); }
@@ -3476,7 +3563,9 @@ document.addEventListener('visibilitychange', () => {
   computeTarget();
   try {
     if (!glInit()) throw new Error('WebGL2 yok');
-    const [scene, maps, disc, sheen, arm] = await Promise.all(['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'].map(loadImg));
+    const startId = wantedScene();
+    const [scene, maps, disc, sheen, arm] = await loadSceneImgs(startId);
+    applySceneConfig(startId);
     makeTex(0, 'uScene', scene, false);
     makeTex(1, 'uMaps', maps, false);
     makeTex(2, 'uDisc', disc, true);
