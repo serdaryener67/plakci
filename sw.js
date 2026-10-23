@@ -1,6 +1,6 @@
 // Plakçı service worker
 // ÖNEMLİ: her güncellemede CACHE_NAME'deki sürüm numarasını artır (v1 -> v2 ...)
-const CACHE_NAME = 'plakci-v34';
+const CACHE_NAME = 'plakci-v37';
 
 const SHELL = [
   './',
@@ -16,6 +16,13 @@ const SHELL = [
   './disc2.webp',
   './sheen2.png',
   './arm2.png',
+  './scene2m.webp',
+  './scene2d.webp',
+  './disc2m.webp',
+  './disc2d.webp',
+  './sheen2m.png',
+  './sheen2d.png',
+  './arm2d.png',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png'

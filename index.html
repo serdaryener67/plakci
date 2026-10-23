@@ -394,6 +394,8 @@ const SCENES = {
             [[860,0],[1338,0],[1328,97],[860,97]], [[860,128],[1315,128],[1281,412],[860,412]]],
     plant: [[355,235],[420,215],[470,300],[480,420],[355,420]],
     lamp1: [55, 255, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    // aynı kadrajın sabah ve öğle görselleri: zamana göre akşam görseliyle karışır
+    variants: ['scene2m.webp', 'scene2d.webp', 'disc2m.webp', 'disc2d.webp', 'sheen2m.png', 'sheen2d.png', 'arm2d.png'],
     fogRect: [338, 0, 1000, 416], cup: [1285, 714, 185], cone: [1462, 458, 132, 136],
     focus: [760, 560], cine: [0, 0, 1420, 830], waveY: 755,
     spots: [[545, 515, 960, 660, .45], [340, 425, 1330, 470, .4], [440, 690, 1120, 790, .9], [0, 650, 430, 948, .4], [1140, 620, 1659, 948, .4]],
@@ -498,6 +500,9 @@ precision highp float;
 in vec2 vP;
 out vec4 outC;
 uniform sampler2D uScene, uMaps, uDisc, uLabel, uSheen, uArm, uCup, uCone, uFogTex;
+uniform sampler2D uSceneM, uSceneD, uDiscM, uDiscD, uSheenM, uSheenD, uArmD;
+uniform vec3 uWv;          // akşam, sabah, öğle görsellerinin ağırlığı
+uniform float uSunImg;     // görselde güneş lekesi var mı (güneşli görsellerin ağırlığı)
 uniform float uFogA;
 uniform float uCoffee, uBass;
 uniform float uT, uRot, uArmA, uArmLift, uKe;
@@ -511,6 +516,7 @@ uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
+vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
 float sst(float a, float b, float x){ float t = clamp((x - a) / (b - a), 0., 1.); return t * t * (3. - 2. * t); }
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
@@ -551,7 +557,7 @@ vec3 rainGlass(vec2 p){
 // iç mekan ışığı: güneş lekelerini bastır, ortam rengi, lambalar
 vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec3 alb = c;
-  c *= 1. - sun * (1. - uDay) * .82;
+  c *= 1. - sun * (1. - uDay) * .82 * uSunImg;
   c *= uAmb;
   float d1 = length((p - uL1.xy) * vec2(1., 1.2));
   float f1 = uL1.z / (1. + pow(d1 / 640., 2.));
@@ -602,12 +608,12 @@ void main(){
     q.y += sin(p.x * .01 + uT * .8) * .35 * uWind * ext;
     if (uRain > .01) { rg = rainGlass(p); q += rg.xy * uRain * ext; }
   }
-  vec3 base = texture(uScene, q / STAGE).rgb;
+  vec3 base = sceneTex(q / STAGE).rgb;
   float br = (uRain * 2.2 + uFog * 3.) * ext;
   if (br > .3) {
     base = (base * 2.
-      + texture(uScene, (q + vec2(br, 0.)) / STAGE).rgb + texture(uScene, (q - vec2(br, 0.)) / STAGE).rgb
-      + texture(uScene, (q + vec2(0., br)) / STAGE).rgb + texture(uScene, (q - vec2(0., br)) / STAGE).rgb) / 6.;
+      + sceneTex((q + vec2(br, 0.)) / STAGE).rgb + sceneTex((q - vec2(br, 0.)) / STAGE).rgb
+      + sceneTex((q + vec2(0., br)) / STAGE).rgb + sceneTex((q - vec2(0., br)) / STAGE).rgb) / 6.;
   }
 
   // ---- dış mekan renk/zaman
@@ -657,13 +663,14 @@ void main(){
   if (r < RR + 2.) {
     float cs = cos(-uRot), sn = sin(-uRot);
     vec2 dr = vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y);
-    vec4 disc = texture(uDisc, dr / (2. * RR) + .5);
+    vec2 duv = dr / (2. * RR) + .5;
+    vec4 disc = texture(uDisc, duv) * uWv.x + texture(uDiscM, duv) * uWv.y + texture(uDiscD, duv) * uWv.z;
     vec3 rc = mix(base, disc.rgb, disc.a);
     float la = sst(LR + .8, LR - .8, r);
     vec3 lab = texture(uLabel, dr / (2. * LR) + .5).rgb;
     rc = mix(rc, lab, la);
     vec2 sv = (p - SHB.xy) / SHB.zw;
-    vec3 sh = texture(uSheen, sv).rgb * (.18 + .82 * uDay) * (1. - la * .5);
+    vec3 sh = (texture(uSheen, sv).rgb * uWv.x + texture(uSheenM, sv).rgb * uWv.y + texture(uSheenD, sv).rgb * uWv.z) * (.18 + .82 * uDay) * (1. - la * .5);
     rc = 1. - (1. - rc) * (1. - sh);
     float a = max(disc.a, la);
     col = mix(col, lightInterior(rc, 0., p), a);
@@ -689,7 +696,7 @@ void main(){
   vec2 qa = inv * (p + vec2(0., uArmLift) - PIV) + PIV;
   vec2 ua = (qa - ARMB.xy) / ARMB.zw;
   if (all(greaterThan(ua, vec2(0.))) && all(lessThan(ua, vec2(1.)))) {
-    vec4 am = texture(uArm, ua);
+    vec4 am = mix(texture(uArm, ua), texture(uArmD, ua), uWv.y + uWv.z);
     col = mix(col, lightInterior(am.rgb, 0., p), am.a);
   }
 
@@ -1550,6 +1557,9 @@ function computeTarget() {
   for (let i = 0; i < 3; i++) u.amb[i] *= 1 - ov * .16;
   u.lamp = Math.max(u.lamp, ov * .3 * (1 - u.night));     // kapalı havada da lamba yanar
   if (wx.snow) { u.extTint = [u.extTint[0] * .95, u.extTint[1], u.extTint[2] * 1.08]; u.extBright *= 1.12; }
+  // sahnenin zaman görselleri: sabah (dawn), öğle (day), akşam+gece
+  { const sm = (tw.dawn || 0) + (tw.day || 0) + (tw.dusk || 0) + (tw.night || 0) || 1;
+    u.vM = (tw.dawn || 0) / sm; u.vD = (tw.day || 0) / sm; u.vEve = ((tw.dusk || 0) + (tw.night || 0)) / sm; }
   u.ov = ov;   // bulutluluk: güneşe ve gökyüzüne bağlı efektler bunu okur
   u.rain = Math.min(1.3, wx.rain || 0); u.snow = wx.snow || 0; u.fog = wx.fog || 0; u.wind = wx.wind || 0; u.storm = wx.storm || 0;
   // gizli kahve molası: masaya bir fincan gelir, oda hafifçe ısınır
@@ -1701,12 +1711,18 @@ function stepAutoViz(dt) {
 const GA_DESC = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalAlpha');
 let vizMul = 1;
 Object.defineProperty(fx, 'globalAlpha', { get() { return GA_DESC.get.call(this); }, set(v) { GA_DESC.set.call(this, v * vizMul); } });
+// cam kırpması iki adım: önce sadece camlar, sonra bitkinin olduğu yer ayrıca çıkarılır
+// (bitki çerçevenin üstüne taşsa bile o alan cam sayılmaz)
 function buildPaneClip() {
   const p = new Path2D();
-  for (const poly of SC.panes.concat([SC.plant])) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
-  return p;
+  for (const poly of SC.panes) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
+  const hole = new Path2D();
+  hole.rect(-100, -100, STAGE_W + 200, STAGE_H + 200);
+  const pl = SC.plant; hole.moveTo(pl[0][0], pl[0][1]); for (const v of pl.slice(1)) hole.lineTo(v[0], v[1]); hole.closePath();
+  return { p, hole };
 }
 let paneClip = buildPaneClip();
+function clipGlass(ctx) { ctx.clip(paneClip.p); ctx.clip(paneClip.hole, 'evenodd'); }
 
 // önceden çizilmiş ışık sprite'ları (her karede gradient üretmemek için)
 function makeOrb(rgb, ring) {
@@ -1764,7 +1780,7 @@ function drawFX(dt) {
   // ---- pencere dışı: yağmur, kar, rüzgarla uçan yapraklar, uzak ışıklar
   const needOut = (c.rain > .02) || (c.snow > .02) || wind > .2 || night > .4;
   if (needOut) {
-    fx.save(); fx.clip(paneClip, 'evenodd');
+    fx.save(); clipGlass(fx);
     if (night > .4) {
       fx.globalCompositeOperation = 'lighter';
       for (const L of cityLights) {
@@ -1822,7 +1838,8 @@ function drawFX(dt) {
   const fn = VIZ_DRAW[vizRun];
   // güneş yoksa (gece ya da kapalı gündüz) güneşe bağlı efektler lamba haline geçer
   const dimN = sunGone(c) ? 1 : night;
-  if (fn) fn(dt, c, SUN_FX.has(vizRun) ? dimN : night, wind);
+  const nightLike = SC.variants ? Math.max(night, (c.vEve || 0) > .5 ? .6 : 0) : night;   // akşam görselinde gece efektleri
+  if (fn) fn(dt, c, SC.sunless ? Math.max(night, .6) : (SUN_FX.has(vizRun) ? dimN : nightLike), wind);
   vizMul = 1;
   fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
   fx.lineCap = 'butt'; fx.shadowBlur = 0;
@@ -2170,7 +2187,7 @@ const candlePools = [
 // gündüz ve gece farklı davranan modların adları da değişir
 // ---- doğa mantığı: hangi efekt hangi koşulda mümkün
 const SUN_FX = new Set(['rays', 'dust', 'leaves', 'prism', 'glints', 'pulse']);   // güneş ister, yoksa lambaya döner
-function sunGone(c) { return (c.night || 0) > .5 || (c.day || 0) < .3; }
+function sunGone(c) { return SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5 || (c.day || 0) < .3; }
 function overcast(c) { return (c.ov || 0) > .5; }
 function precip(c) { return (c.rain || 0) + (c.snow || 0) + (c.storm || 0) > .3; }
 function badSky(c) { return precip(c) || (c.fog || 0) > .4 || (c.wind || 0) > .5; }
@@ -2181,7 +2198,7 @@ const VIZ_DUAL = {
 };
 function vizLabel(id) {
   if (id === 'auto') return 'Oto · ' + vizLabel(vizRun);
-  const c = atmo.target || atmo.cur || {}, n = (c.night || 0) > .5, dim = sunGone(c);
+  const c = atmo.target || atmo.cur || {}, n = SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5, dim = sunGone(c);
   switch (id) {
     case 'fireflies': return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
     case 'sky': return n ? (overcast(c) ? 'Şehir ışıkları' : 'Kayan yıldız') : (overcast(c) ? 'Bulutlar' : 'Bulut gölgesi');
@@ -2323,7 +2340,7 @@ const VIZ_DRAW = {
   },
   // Kuşlar (gündüz) / Kayan yıldız (gece)
   sky(dt, c, night) {
-    fx.save(); fx.clip(paneClip, 'evenodd');
+    fx.save(); clipGlass(fx);
     if (overcast(c)) {
       // kapalı hava: yıldız ya da güneş gölgesi olmaz. Gece bulutlara vuran şehir ışığı, gündüz alçaktan geçen bulutlar
       const n = night > .5;
@@ -2382,7 +2399,7 @@ const VIZ_DRAW = {
     const e = levels.energy;
     if (night > .5 && badSky(c)) {
       // fener uçmaz: camdaki damlalar lambanın ışığını küçük bokeh noktaları gibi yakalar
-      fx.save(); fx.clip(paneClip, 'evenodd');
+      fx.save(); clipGlass(fx);
       for (const d of glassLights) {
         d.y += d.v * dt * (Math.random() < .02 ? 6 : 1); if (d.y > 440) { d.y = rnd(-10, 200); d.x = rnd(150, 1220); }
         const b = bands[d.b];
@@ -2395,7 +2412,7 @@ const VIZ_DRAW = {
       // pencerenin ardında süzülerek yükselen kâğıt fenerler
       if (lanterns.length < 18 && Math.random() < dt * (1.1 + e * 3))
         lanterns.push({ x: rnd(180, 1200), y: 450, d: rnd(.45, 1), ph: rnd(0, 6.28), t: 0 });
-      fx.save(); fx.clip(paneClip, 'evenodd');
+      fx.save(); clipGlass(fx);
       const vis = 1 - (c.fog || 0) * .5;
       for (let i = lanterns.length - 1; i >= 0; i--) {
         const L = lanterns[i]; L.t += dt;
@@ -2441,7 +2458,7 @@ const VIZ_DRAW = {
   mirror(dt, c, night) {
     if (overcast(c)) {
       // kapalı havada ay da güneş de yok: cam, odanın sıcak ışıklarını yansıtır
-      fx.save(); fx.clip(paneClip, 'evenodd');
+      fx.save(); clipGlass(fx);
       const n = night > .5, base = n ? .22 : .1;
       for (const r of reflections) {
         const b = bands[r.b];
@@ -2465,7 +2482,7 @@ const VIZ_DRAW = {
       fx.drawImage(POOL_MOON, 420, 470, 620, 230);
       return;
     }
-    fx.save(); fx.clip(paneClip, 'evenodd');
+    fx.save(); clipGlass(fx);
     if (levels.beat && glares.length < 2) glares.push({ t: 0, x0: rnd(-150, 150), w: rnd(50, 110) });
     for (let i = glares.length - 1; i >= 0; i--) {
       const g = glares[i]; g.t += dt; const k = g.t / 1.1;
@@ -2674,12 +2691,20 @@ function setSceneUniforms() {
   gl.uniform3fv(U.uL1, SC.lamp1); gl.uniform3fv(U.uL2, SC.lamp2); gl.uniform1f(U.uCurtK, SC.curtain);
   gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
   gl.uniform1f(U.uFade, sceneFade);
+  const cc = atmo.cur || {};
+  if (SC.variants) { const e = cc.vEve ?? 1, m = cc.vM || 0, d = cc.vD || 0, t = (e + m + d) || 1; gl.uniform3f(U.uWv, e / t, m / t, d / t); gl.uniform1f(U.uSunImg, (m + d) / t); }
+  else { gl.uniform3f(U.uWv, 1, 0, 0); gl.uniform1f(U.uSunImg, 1); }
 }
 /* ---------- sahne değişimi: oda kararır, yeni oda ışıkla açılır; plak ve müzik kesilmez ---------- */
 let sceneId = 'window', sceneFade = 0, sceneBusy = false, sceneMode = store.get('scene', 'auto');
 const sceneImgs = {};
 async function loadSceneImgs(id) {
-  if (!sceneImgs[id]) sceneImgs[id] = await Promise.all(SCENES[id].files.map(loadImg));
+  if (!sceneImgs[id]) {
+    const sc = SCENES[id];
+    const main = await Promise.all(sc.files.map(loadImg));
+    const v = sc.variants ? await Promise.all(sc.variants.map(loadImg)) : [main[0], main[0], main[2], main[2], main[3], main[3], main[4]];
+    sceneImgs[id] = main.concat(v);
+  }
   return sceneImgs[id];
 }
 function applySceneConfig(id) {
@@ -2696,7 +2721,7 @@ async function setScene(id, instant) {
   try {
     const imgs = await loadSceneImgs(id);
     if (!instant && glReady) await tweenReal(.7, k => { sceneFade = k; fxCanvas.style.opacity = 1 - k; });
-    if (glReady) { const [sc, mp, ds, sh, am] = imgs; updateTex('uScene', sc); updateTex('uMaps', mp); updateTex('uDisc', ds); updateTex('uSheen', sh); updateTex('uArm', am); }
+    if (glReady) bindSceneTex(imgs);
     applySceneConfig(id);
     if (!instant && glReady) await tweenReal(1.2, k => { sceneFade = 1 - k; fxCanvas.style.opacity = k; });
     sceneFade = 0; fxCanvas.style.opacity = 1;
@@ -2709,6 +2734,12 @@ async function setScene(id, instant) {
 function tweenReal(dur, fn) {
   if (document.hidden) { fn(1); return Promise.resolve(); }
   return new Promise(res => { const t0 = performance.now(); const st = (n) => { const k = Math.min(1, (n - t0) / 1000 / dur); fn(ease(k)); if (k < 1) requestAnimationFrame(st); else res(); }; requestAnimationFrame(st); });
+}
+const VAR_TEX = ['uSceneM', 'uSceneD', 'uDiscM', 'uDiscD', 'uSheenM', 'uSheenD', 'uArmD'];
+function bindSceneTex(imgs) {
+  const [sc, mp, ds, sh, am] = imgs;
+  updateTex('uScene', sc); updateTex('uMaps', mp); updateTex('uDisc', ds); updateTex('uSheen', sh); updateTex('uArm', am);
+  VAR_TEX.forEach((n, i) => updateTex(n, imgs[5 + i]));
 }
 function wantedScene() {
   if (sceneMode !== 'auto') return sceneMode;
@@ -3564,7 +3595,8 @@ document.addEventListener('visibilitychange', () => {
   try {
     if (!glInit()) throw new Error('WebGL2 yok');
     const startId = wantedScene();
-    const [scene, maps, disc, sheen, arm] = await loadSceneImgs(startId);
+    const startImgs = await loadSceneImgs(startId);
+    const [scene, maps, disc, sheen, arm] = startImgs;
     applySceneConfig(startId);
     makeTex(0, 'uScene', scene, false);
     makeTex(1, 'uMaps', maps, false);
@@ -3576,6 +3608,7 @@ document.addEventListener('visibilitychange', () => {
     makeTex(6, 'uCup', makeCup(), true);
     makeTex(7, 'uCone', makeCone(), true);
     makeTex(8, 'uFogTex', fogOutCv, false);
+    VAR_TEX.forEach((n, i) => makeTex(9 + i, n, startImgs[5 + i], /Disc|Arm/.test(n)));
     glReady = true;
   } catch (e) {
     console.error(e);
