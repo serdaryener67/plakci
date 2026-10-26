@@ -420,6 +420,29 @@ const SCENES = {
     focus: [600, 560], cine: [0, 0, 1480, 840], waveY: 690,
     spots: [[500, 520, 1050, 640, .45], [745, 440, 1545, 500, .4], [330, 650, 1300, 800, .9], [0, 600, 330, 948, .4], [1300, 600, 1659, 948, .4]],
     secret: []
+  },
+  sea: {
+    name: 'Deniz kenarı', files: ['scene4.webp', 'maps4.png', 'disc4.webp', 'sheen4.png', 'arm4.png'],
+    rec: { cx: 571, cy: 521, rx: 226, ry: 40.25, labelR: 72, rot: -2.03 },   // plak hafif eğik duruyor
+    arm: { pivotX: 840, pivotY: 478, ke: 0.27, startDeg: 38, endDeg: 68, x: 796, y: 442, w: 154, h: 100 },
+    sheen: [342, 469, 459, 103], spindle: [572.5, 504],
+    panes: [[[337,0],[705,0],[704,163],[338,164]], [[757,0],[1135,0],[1134,160],[758,163]], [[1178,0],[1550,0],[1549,156],[1178,158]],
+            [[338,188],[704,186],[704,425],[340,428]], [[758,186],[1134,182],[1134,418],[759,420]], [[1179,179],[1548,176],[1545,418],[1180,419]],
+            [[40,0],[86,0],[86,170],[40,170]], [[40,190],[86,190],[86,430],[40,430]]],
+    plant: [[48,250],[282,250],[282,660],[48,660]],
+    holes: [[[48,250],[282,250],[282,660],[48,660]], [[1436,420],[1452,392],[1470,368],[1490,360],[1512,368],[1532,386],[1556,410],[1556,462],[1436,462]]],
+    lamp1: [172, 515, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    variants: ['scene4m.webp', 'scene4d.webp', 'disc4m.webp', 'disc4d.webp', 'sheen4m.png', 'sheen4d.png', 'arm4d.png'],
+    noLeaves: true,
+    // gemici feneri: titreyen sıcak ışık (kıvılcım ve sıcak hava dalgası yok)
+    fire: { x: 172, y: 515, k: .75, rect: [150, 468, 46, 84], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true },   // öğle görselinde fener sönük
+    sea: { horizon: 250 },                 // dalgalanan deniz (maps G kanalı cam içinde deniz maskesi)
+    beacon: [1404, 181],                   // deniz feneri: gece dönen ışık
+    lights: [[588, 287], [851, 273], [1061, 265], [700, 258], [1215, 261], [470, 262], [960, 259], [640, 300], [1110, 290]],
+    fogRect: [337, 0, 1215, 432], cup: [1185, 712, 185], cone: [1300, 560, 118, 122],
+    focus: [650, 540], cine: [0, 0, 1600, 880], waveY: 700,
+    spots: [[340, 470, 980, 580, .45], [340, 430, 1550, 470, .4], [280, 640, 1300, 800, .9], [0, 600, 280, 948, .4], [1300, 600, 1659, 948, .4]],
+    secret: []
   }
 };
 let SC = SCENES.window;
@@ -534,7 +557,8 @@ uniform vec2 RC, PIV, uSpin;
 uniform float RR, RK, LR, uCurtK, uFade;
 uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
-uniform vec4 uFire, uFireR;   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
+uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
+uniform float uFireHaze, uRecA;   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -609,6 +633,7 @@ void main(){
   // ---- dış mekan: rüzgar salınımı + camdaki yağmur
   vec2 q = p;
   vec3 rg = vec3(0.);
+  float seaM = 0.;
   // esinti: perdeler yukarıdan asılı kumaş gibi salınır
   if (uCurtain > .001) {
     float cl = sst(112., 92., p.x);
@@ -631,6 +656,17 @@ void main(){
                + (noise(vec2(p.x * .004, uT * .35)) - .5) * 1.2) * gust * hgt;
     q.x += sway * uWind * ext;
     q.y += sin(p.x * .01 + uT * .8) * .35 * uWind * ext;
+    // deniz: yakına doğru büyüyen yumuşak dalga kıpırtısı, rüzgârla sertleşir
+    if (uSea.x > 0.) {
+      seaM = mp.g * sst(.6, .95, ext);
+      if (seaM > .01) {
+        float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
+        float ph = p.y * mix(1.1, .38, dpt) + uT * 1.3 + noise(vec2(p.x * .015, p.y * .05) + uT * .12) * 5.;
+        float amp = (.35 + dpt * 1.5) * (1. + uWind * 1.4 + uRain * .4);
+        q.x += sin(ph) * amp * seaM * uSea.x;
+        q.y += sin(p.x * .025 + uT * .8 + p.y * .15) * .4 * dpt * seaM * uSea.x;
+      }
+    }
     if (uRain > .01) { rg = rainGlass(p); q += rg.xy * uRain * ext; }
   }
   // şömine: alevin üstünde sıcak hava dalgalanması
@@ -639,8 +675,8 @@ void main(){
     vec2 fr = (p - uFireR.xy) / uFireR.zw;
     if (fr.x > 0. && fr.x < 1. && fr.y > 0. && fr.y < 1.) {
       fmask = sst(0., .12, fr.x) * sst(1., .75, fr.x) * sst(0., .25, fr.y) * sst(1., .65, fr.y);
-      q.x += (noise(vec2(p.x * .05, p.y * .045 + uT * 3.4)) - .5) * 4. * fmask;
-      q.y += (noise(vec2(p.x * .03 + 7., p.y * .05 + uT * 4.3)) - .5) * 5. * fmask;
+      q.x += (noise(vec2(p.x * .05, p.y * .045 + uT * 3.4)) - .5) * 4. * fmask * uFireHaze;
+      q.y += (noise(vec2(p.x * .03 + 7., p.y * .05 + uT * 4.3)) - .5) * 5. * fmask * uFireHaze;
     }
   }
   vec3 base = sceneTex(q / STAGE).rgb;
@@ -667,7 +703,24 @@ void main(){
   e += uFlash * vec3(.8, .85, 1.);
   e += rg.z * uRain * mix(.07, .02, uNight);
   e += uLamp * uLampCol * .045 + vec3(1., .6, .3) * uCandle * .04;
-  e *= 1. + uGlow * .32 * (1. - uNight);                               // geceleri camda iç mekan yansıması
+  e *= 1. + uGlow * .32 * (1. - uNight);
+  if (seaM > .01) {   // gündüz suyun üstünde güneş pırıltısı
+    float gl = pow(noise(vec2(p.x * .13, p.y * .55 + uT * 1.6)), 18.) * seaM * uSea.z * uDay * (1. - uFog) * (1. - uRain * .8);
+    e += vec3(1., .97, .9) * gl * 1.6;
+  }
+  if (uBeam.z > .001) {
+    // deniz feneri: yatay düzlemde dönen ışık; yana bakarken uzun şerit, bize dönünce parlama
+    float ang = uT * .85, side = cos(ang), toward = max(0., -sin(ang));
+    vec2 bd = p - uBeam.xy;
+    float along = bd.x * sign(side), len = 1250. * abs(side);
+    float tb = along / max(len, 1.);
+    float wdt = 3. + max(along, 0.) * (.06 + uFog * .05);
+    float perp = bd.y - along * .018;
+    float ray = step(0., along) * exp(-perp * perp / (wdt * wdt)) * (1. - sst(.1, 1., tb)) * sst(0., .03, tb) * exp(-max(along, 0.) / 700.);
+    float fl = pow(toward, 6.);
+    float flare = (.35 + 1.8 * fl) * exp(-length(bd * vec2(1., 1.6)) / (6. + 26. * fl));
+    e += vec3(1., .93, .74) * uBeam.z * (ray * (.22 + uFog * .12) + flare * (1. - uFog * .5));
+  }                               // geceleri camda iç mekan yansıması
 
   // buğu: sadece camda (kenarlardan içeri çekilmiş), bitkinin olduğu yerde yok
   if (uFogA > .005 && ext > .01) {
@@ -697,7 +750,9 @@ void main(){
   }
 
   // ---- plak (dönen doku + sabit parlama + etiket)
-  vec2 d = vec2(p.x - RC.x, (p.y - RC.y) / RK);
+  vec2 pr = p - RC;
+  if (uRecA != 0.) { float rc0 = cos(uRecA), rs0 = sin(uRecA); pr = vec2(rc0 * pr.x + rs0 * pr.y, -rs0 * pr.x + rc0 * pr.y); }   // eğik plak
+  vec2 d = vec2(pr.x, pr.y / RK);
   float r = length(d);
   if (r < RR + 2.) {
     float cs = cos(-uRot), sn = sin(-uRot);
@@ -1701,7 +1756,7 @@ function updateAtmoUI() {
   mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
   mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.keys(WX).map(k => [k, wxLabel(k)])], atmo.wxMode,
     (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
-  mk($('sceneOpts'), [['auto', 'Oto (karda kulübe, akşam çatı katı, gündüz pencere)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
+  mk($('sceneOpts'), [['auto', 'Oto (kar: kulübe, fırtına/sis: deniz, akşam: çatı katı, gündüz: pencere)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
     (k) => { sceneMode = k; store.set('scene', k); computeTarget(); setScene(wantedScene()); });
   $('secretRow').style.display = atmo.coffeeFound ? '' : 'none';
   mk($('secretOpts'), [['coffee', '☕ Kahve molası']], atmo.coffee ? 'coffee' : '', () => toggleCoffee());
@@ -1763,7 +1818,7 @@ function buildPaneClip() {
   for (const poly of SC.panes) { p.moveTo(poly[0][0], poly[0][1]); for (const v of poly.slice(1)) p.lineTo(v[0], v[1]); p.closePath(); }
   const hole = new Path2D();
   hole.rect(-100, -100, STAGE_W + 200, STAGE_H + 200);
-  const pl = SC.plant; hole.moveTo(pl[0][0], pl[0][1]); for (const v of pl.slice(1)) hole.lineTo(v[0], v[1]); hole.closePath();
+  for (const pl of (SC.holes || [SC.plant])) { hole.moveTo(pl[0][0], pl[0][1]); for (const v of pl.slice(1)) hole.lineTo(v[0], v[1]); hole.closePath(); }
   return { p, hole };
 }
 let paneClip = buildPaneClip();
@@ -1879,7 +1934,7 @@ function drawFX(dt) {
       if (streak) { fx.lineWidth = 2; fx.stroke(); } else fx.fill();
     }
     // rüzgârda savrulan yapraklar (kışın kuru, kahverengi)
-    if (wind > .35 && (SC.winter || !(c.snow > .3))) {
+    if (wind > .35 && !SC.noLeaves && (SC.winter || !(c.snow > .3))) {
       fx.fillStyle = SC.winter ? (night > .5 ? 'rgba(50,35,25,.7)' : 'rgba(150,95,45,.85)') : (night > .5 ? 'rgba(40,50,40,.6)' : 'rgba(120,140,60,.75)');
       for (const L of leaves) {
         L.x -= (90 + 160 * wind) * L.v * dt; L.y += Math.sin(T * 2 + L.a) * 30 * dt + 12 * dt; L.a += dt * 3 * L.v;
@@ -1893,7 +1948,7 @@ function drawFX(dt) {
   }
 
   // ---- şömine: ara ara yükselip sönen kıvılcımlar
-  if (SC.fire) {
+  if (SC.fire && SC.fire.sparks !== false) {
     const [fx0, fy0, fw0, fh0] = SC.fire.rect;
     if (fireSparks.length < 14 && Math.random() < fdtFX(dt) * (1.2 + (isPlaying ? levels.bass * 6 : 0)))
       fireSparks.push({ x: fx0 + fw0 * rnd(.15, .8), y: fy0 + fh0 * rnd(.55, .8), vx: rnd(-8, 14), vy: rnd(-70, -35), t: 0, l: rnd(.8, 2), w: rnd(0, 6) });
@@ -2289,7 +2344,7 @@ function vizLabel(id) {
     case 'wings': return !n ? 'Kelebekler' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
     case 'mirror': return overcast(c) ? 'Cam yansıması' : n ? 'Ay ışığı' : 'Cam parıltısı';
     case 'leaves': return dim ? 'Mum ışığı' : 'Yaprak ışığı';
-    case 'prism': return dim ? 'Şömine' : 'Gökkuşağı';
+    case 'prism': return dim ? ((SC.fire && SC.fire.name) || 'Şömine') : 'Gökkuşağı';
     case 'rays': return dim ? 'Lamba huzmesi' : 'Güneş huzmesi';
   }
   return VIZ_NAMES[id];
@@ -2692,7 +2747,7 @@ const VIZ_DRAW = {
       const f = .75 + .2 * Math.sin(T * 7.3) * Math.sin(T * 4.1 + 1) + .12 * Math.sin(T * 17) + levels.bass * .5;
       fx.globalAlpha = clamp(.32 * f, 0, .7); fx.drawImage(PUFF_NIGHT, -420, 380, 1100, 700);
       fx.globalAlpha = clamp(.2 * f, 0, .5); fx.drawImage(GLOW, -260, 520, 700, 500);
-      if (Math.random() < dt * (4 + levels.high * 18) && embersF.length < 26)
+      if ((!SC.fire || SC.fire.sparks !== false) && Math.random() < dt * (4 + levels.high * 18) && embersF.length < 26)
         embersF.push({ x: rnd(-20, 160), y: rnd(860, 960), vx: rnd(10, 50), vy: rnd(-90, -45), t: 0, l: rnd(1.5, 3), w: rnd(0, 6) });
       for (let i = embersF.length - 1; i >= 0; i--) {
         const e = embersF[i]; e.t += dt; const k = e.t / e.l;
@@ -2781,8 +2836,19 @@ function setSceneUniforms() {
   gl.uniform4fv(U.SHB, SC.sheen); gl.uniform2fv(U.uSpin, SC.spindle);
   gl.uniform3fv(U.uL1, SC.lamp1); gl.uniform3fv(U.uL2, SC.lamp2); gl.uniform1f(U.uCurtK, SC.curtain);
   gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
-  if (SC.fire) { gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, 1, fireF); gl.uniform4fv(U.uFireR, SC.fire.rect); }
+  if (SC.fire) {
+    const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - ((atmo.cur && atmo.cur.vD) || 0) : 1);
+    gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, fk, fireF * (fk > 0 ? 1 : 0)); gl.uniform4fv(U.uFireR, SC.fire.rect); gl.uniform1f(U.uFireHaze, SC.fire.haze ?? 1); }
   else gl.uniform4f(U.uFire, 0, 0, 0, 0);
+  gl.uniform1f(U.uRecA, (SC.rec.rot || 0) * Math.PI / 180);
+  { const cv = atmo.cur || {}, sunImg = SC.variants ? (cv.vM || 0) + (cv.vD || 0) : (SC.sunless ? 0 : 1);
+    gl.uniform4f(U.uSea, SC.sea ? 1 : 0, SC.sea ? SC.sea.horizon : 0, sunImg, 0); }
+  if (SC.beacon) {
+    // fener sadece akşam görselinde ve gece yanar; sisli havada daha belirgin
+    const cb = atmo.cur || {}, eve = SC.variants ? (cb.vEve ?? 1) : 1;
+    const bz = clamp(Math.max(cb.night || 0, eve * .55) * eve, 0, 1);
+    gl.uniform4f(U.uBeam, SC.beacon[0], SC.beacon[1], bz, 0);
+  } else gl.uniform4f(U.uBeam, 0, 0, 0, 0);
   gl.uniform1f(U.uFade, sceneFade);
   const cc = atmo.cur || {};
   if (SC.variants) { const e = cc.vEve ?? 1, m = cc.vM || 0, d = cc.vD || 0, t = (e + m + d) || 1; gl.uniform3f(U.uWv, e / t, m / t, d / t); gl.uniform1f(U.uSunImg, (m + d) / t); }
@@ -2805,6 +2871,10 @@ function applySceneConfig(id) {
   Object.assign(REC, SC.rec); Object.assign(ARM, SC.arm);
   paneClip = buildPaneClip();
   rebuildSpots();
+  cityLights.forEach((L, i) => {
+    if (SC.lights) { const q = SC.lights[i % SC.lights.length]; L.x = q[0]; L.y = q[1]; L.r = rnd(1.2, 2.4); }
+    else { L.x = rnd(170, 1200); L.y = rnd(150, 380); L.r = rnd(1.5, 3.5); }
+  });
   if (armMode === 'tracking' || armMode === 'paused') armA = progressAngle();
   computeView();
 }
@@ -2838,6 +2908,7 @@ function wantedScene() {
   if (sceneMode !== 'auto') return sceneMode;
   const t = atmo.target || atmo.cur || {};
   if ((t.snow || 0) > .4) return 'cabin';                                       // kar yağıyorsa kış kulübesi
+  if ((t.storm || 0) > .5 || (t.fog || 0) > .5) return 'sea';                   // fırtına ve sis: deniz kenarı
   return ((t.night || 0) > .35 || (t.lamp || 0) > .5) ? 'attic' : 'window';   // akşam ve gece: çatı katı
 }
 function drawGL(jitter) {
