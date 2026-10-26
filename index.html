@@ -558,7 +558,7 @@ uniform float RR, RK, LR, uCurtK, uFade;
 uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
 uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
-uniform float uFireHaze, uRecA;   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
+uniform float uFireHaze, uRecA, uYak;   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -707,6 +707,27 @@ void main(){
   if (seaM > .01) {   // gündüz suyun üstünde güneş pırıltısı
     float gl = pow(noise(vec2(p.x * .13, p.y * .55 + uT * 1.6)), 18.) * seaM * uSea.z * uDay * (1. - uFog) * (1. - uRain * .8);
     e += vec3(1., .97, .9) * gl * 1.6;
+  }
+  if (uYak > .001 && seaM > .01) {
+    // yakamoz: dalga tepelerinde kümelenen, göz kırpan mavi-yeşil ışık noktaları; kıyıya yakın daha iri ve yoğun
+    float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
+    // perspektif satırlar: satır yüksekliği derinlikle büyür, her satırın hücre genişliği sabit (noktalar kaymaz)
+    float ya = 1.6, yb = (5.5 - 1.6) / 170., tt = max(q.y - uSea.y, 0.);
+    float gy = log(1. + yb * tt / ya) / yb, ry = floor(gy);
+    float tc = ya * (exp(yb * (ry + .5)) - 1.) / yb, dc = clamp(tc / 170., 0., 1.);
+    vec2 cs = vec2(mix(5., 11., dc), ya + yb * tc);
+    float gx = q.x / cs.x + hash(vec2(ry, 7.1)) * 13.;
+    vec2 id = vec2(floor(gx), ry), fc = vec2(fract(gx), fract(gy)) - .5;
+    float h = hash(id);
+    vec2 jt = (vec2(hash(id + 3.7), hash(id + 9.2)) - .5) * .6;     // nokta hücre içinde rastgele yerde
+    vec2 dd = (fc - jt) * cs;                                       // ekran pikseliyle yuvarlak nokta
+    float rr = mix(.8, 1.7, dc);
+    float tw = pow(max(0., sin(uT * (1.2 + h * 2.6) + h * 40.)), 4.);
+    float dotm = (exp(-dot(dd, dd) / (rr * rr)) + exp(-dot(dd, dd) / (rr * rr * 9.)) * .25) * step(.84, h) * tw;
+    float crest = sst(.45, .8, noise(vec2(p.x * .012 - uT * .08, p.y * mix(.25, .07, dpt) - uT * .35)));   // dalga tepeleri boyunca kümelenme
+    float haze = noise(vec2(p.x * .006 + uT * .03, p.y * .03)) * crest * .12;
+    float y = (dotm * (.5 + crest * 1.5) + haze) * (.55 + dpt * .7) * seaM * uYak;
+    e += vec3(.2, .95, .85) * y * 1.6;
   }
   if (uBeam.z > .001) {
     // deniz feneri: yatay düzlemde dönen ışık; yana bakarken uzun şerit, bize dönünce parlama
@@ -2205,7 +2226,7 @@ const GLARE = (() => {
 })();
 // mum: sahnenin önünde, masanın sol tarafında hayali bir mum
 const CANDLE_X = 300, CANDLE_Y = 980;
-let candleF = .7, candleN = 0, fireF = 0;
+let candleF = .7, candleN = 0, fireF = 0, yakS = 0;
 const fireSparks = [];
 const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
@@ -2338,7 +2359,8 @@ function vizLabel(id) {
   if (id !== 'off' && !fxOK(id)) return 'Bokeh';
   const c = atmo.target || atmo.cur || {}, n = SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5, dim = sunGone(c);
   switch (id) {
-    case 'fireflies': if (SC.winter) return n ? 'Kor zerreleri' : 'Işık zerreleri';
+    case 'fireflies': if (SC.sea) return dim ? 'Yakamoz' : 'Işık zerreleri';
+      if (SC.winter) return n ? 'Kor zerreleri' : 'Işık zerreleri';
       return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
     case 'sky': return n ? (overcast(c) ? 'Şehir ışıkları' : 'Kayan yıldız') : (overcast(c) ? 'Bulutlar' : 'Bulut gölgesi');
     case 'wings': return !n ? 'Kelebekler' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
@@ -2398,6 +2420,7 @@ const VIZ_DRAW = {
   // Polen (gündüz) / Ateş böceği (gece)
   fireflies(dt, c, night, wind) {
     const isN = night > .5;
+    if (SC.sea && sunGone(c)) return;   // denizde gece: yakamoz shader'da çizilir
     for (const f of flies) {
       f.a += (Math.sin(T * .5 + f.ph) * .8) * dt;
       const sp = isN ? f.sp : f.sp * .45;
@@ -2938,6 +2961,8 @@ function drawGL(jitter) {
   gl.uniform1f(U.uGlow, vizRun === 'pulse' ? glowS * vf : 0);
   gl.uniform1f(U.uCandle, vizRun === 'leaves' ? candleF * (sunGone(c) ? Math.max(.6, clamp((c.night - .5) * 2.5, 0, 1)) : 0) * vf : 0);
   gl.uniform1f(U.uCurtain, curtainS);
+  { const yakT = (vizRun === 'fireflies' && SC.sea && sunGone(c)) ? (.55 + levels.bass * 1.8 + levels.high * .6) * vf : 0;
+    yakS += (yakT - yakS) * .12; gl.uniform1f(U.uYak, yakS); }
   gl.uniform1f(U.uCoffee, (atmo.cur && atmo.cur.coffee) || 0);
   gl.uniform1f(U.uBass, levels.bass);
   fogAS += ((vizRun === 'breath' ? fogA * autoViz.fade : 0) - fogAS) * .08;
