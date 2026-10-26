@@ -513,7 +513,7 @@ function computeView() {
     view.ty = clamp(vh * 0.44 - SC.focus[1] * view.s, vh - STAGE_H * view.s, 0);
   }
   // yatay ekranda kontroller plağın merkezine hizalanır
-  const midX = clamp(view.tx + REC.cx * view.s, vw * .36, vw * .6);
+  const midX = clamp(view.tx + REC.cx * view.s, vw * .48, vw * .6);   // en az ekranın ortasına yakın: şarkı adına yer kalsın
   document.documentElement.style.setProperty('--mid-x', midX + 'px');
   for (const c of [glCanvas, fxCanvas, tapCanvas]) {
     c.width = Math.round(vw * view.dpr); c.height = Math.round(vh * view.dpr);
