@@ -415,6 +415,7 @@ const SCENES = {
     variants: ['scene3m.webp', 'scene3d.webp', 'disc3m.webp', 'disc3d.webp', 'sheen3m.png', 'sheen3d.png', 'arm3d.png'],
     winter: true,      // kış: yağmur kara döner, kelebek ve karahindiba olmaz
     noFx: ['wings', 'seeds'],
+    fxNames: { fireflies: ['Işık zerreleri', 'Kor zerreleri'] },
     fire: { x: 45, y: 545, rect: [0, 420, 118, 215] },   // şömine: titreyen ışık, sıcak hava dalgası, kıvılcımlar
     fogRect: [742, 0, 805, 458], cup: [1150, 652, 150], cone: [1248, 512, 100, 103],
     focus: [600, 560], cine: [0, 0, 1480, 840], waveY: 690,
@@ -436,7 +437,8 @@ const SCENES = {
     noLeaves: true,
     // gemici feneri: titreyen sıcak ışık (kıvılcım ve sıcak hava dalgası yok)
     fire: { x: 172, y: 515, k: .75, rect: [150, 468, 46, 84], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true },   // öğle görselinde fener sönük
-    sea: { horizon: 250 },                 // dalgalanan deniz (maps G kanalı cam içinde deniz maskesi)
+    sea: { horizon: 250 },
+    fxNames: { wings: ['Güneş yolu', 'Ay yolu'], fireflies: ['Işık zerreleri', 'Yakamoz'], prism: ['Gökkuşağı', 'Fener ışığı'] },                 // dalgalanan deniz (maps G kanalı cam içinde deniz maskesi)
     beacon: [1404, 181],                   // deniz feneri: gece dönen ışık
     lights: [[588, 287], [851, 273], [1061, 265], [700, 258], [1215, 261], [470, 262], [960, 259], [640, 300], [1110, 290]],
     fogRect: [337, 0, 1215, 432], cup: [1185, 712, 185], cone: [1300, 560, 118, 122],
@@ -558,7 +560,8 @@ uniform float RR, RK, LR, uCurtK, uFade;
 uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
 uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
-uniform float uFireHaze, uRecA, uYak;   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
+uniform float uFireHaze, uRecA, uYak;
+uniform vec2 uPath;   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -600,6 +603,24 @@ vec3 rainGlass(vec2 p){
 }
 
 // iç mekan ışığı: güneş lekelerini bastır, ortam rengi, lambalar
+// denizde perspektife uygun ışık noktaları (yakamoz, ay/güneş yolu): satır yüksekliği derinlikle büyür
+float seaDots(vec2 q, float hor, float thr, float spd, float sd){
+  float ya = 1.6, yb = (5.5 - 1.6) / 170., tt = max(q.y - hor, 0.);
+  float gy = log(1. + yb * tt / ya) / yb, ry = floor(gy);
+  float tc = ya * (exp(yb * (ry + .5)) - 1.) / yb, dc = clamp(tc / 170., 0., 1.);
+  vec2 cs = vec2(mix(5., 11., dc), ya + yb * tc);
+  float gx = q.x / cs.x + hash(vec2(ry, 7.1 + sd)) * 13.;
+  vec2 id = vec2(floor(gx), ry + sd * 31.), fc = vec2(fract(gx), fract(gy)) - .5;
+  float h = hash(id);
+  vec2 jt = (vec2(hash(id + 3.7), hash(id + 9.2)) - .5) * .6;
+  vec2 dd = (fc - jt) * cs;
+  float rr = mix(.8, 1.7, dc);
+  float tw = pow(max(0., sin(uT * spd * (1.2 + h * 2.6) + h * 40.)), 4.);
+  return (exp(-dot(dd, dd) / (rr * rr)) + exp(-dot(dd, dd) / (rr * rr * 9.)) * .25) * step(thr, h) * tw;
+}
+// deniz feneri: kameraya dönük olduğu andan açısal uzaklık (0 = tam bize bakıyor)
+float beamFace(){ float a = uT * .5; return mod(a - 4.712389 + 3.14159, 6.28318) - 3.14159; }
+
 vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec3 alb = c;
   c *= 1. - sun * (1. - uDay) * .82 * uSunImg;
@@ -622,6 +643,12 @@ vec3 lightInterior(vec3 c, float sun, vec2 p){
   vec2 dcn = (p - vec2(300., 1000.)) * vec2(1., 1.25);
   float fcn = 1. / (1. + pow(length(dcn) / 560., 2.));
   c += alb * vec3(1., .56, .24) * uCandle * fcn * 1.7;
+  // deniz feneri bize döndüğünde ışığı odayı bir an süpürür
+  if (uBeam.z > .001) {
+    float bf = beamFace(), sw = exp(-bf * bf / .05);
+    float sx = 830. - bf * 2600.;
+    c += alb * vec3(1., .94, .8) * sw * exp(-pow((p.x - sx) / 650., 2.)) * uBeam.z * (1. - uFog * .45) * 1.15;
+  }
   return c;
 }
 
@@ -661,10 +688,10 @@ void main(){
       seaM = mp.g * sst(.6, .95, ext);
       if (seaM > .01) {
         float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
-        float ph = p.y * mix(1.1, .38, dpt) + uT * 1.3 + noise(vec2(p.x * .015, p.y * .05) + uT * .12) * 5.;
-        float amp = (.35 + dpt * 1.5) * (1. + uWind * 1.4 + uRain * .4);
+        float ph = p.y * mix(1.1, .38, dpt) + uT * (1.3 + uSea.w * 1.1) + noise(vec2(p.x * .015, p.y * .05) + uT * .12) * 5.;
+        float amp = (.35 + dpt * 1.5) * (1. + uWind * 1.4 + uRain * .4) * (1. + uSea.w * 1.6);   // fırtınada çalkantı
         q.x += sin(ph) * amp * seaM * uSea.x;
-        q.y += sin(p.x * .025 + uT * .8 + p.y * .15) * .4 * dpt * seaM * uSea.x;
+        q.y += (sin(p.x * .025 + uT * .8 + p.y * .15) * .4 + sin(p.x * .011 - uT * 1.7 + p.y * .05) * .9 * uSea.w) * dpt * seaM * uSea.x;
       }
     }
     if (uRain > .01) { rg = rainGlass(p); q += rg.xy * uRain * ext; }
@@ -708,30 +735,34 @@ void main(){
     float gl = pow(noise(vec2(p.x * .13, p.y * .55 + uT * 1.6)), 18.) * seaM * uSea.z * uDay * (1. - uFog) * (1. - uRain * .8);
     e += vec3(1., .97, .9) * gl * 1.6;
   }
-  if (uYak > .001 && seaM > .01) {
-    // yakamoz: dalga tepelerinde kümelenen, göz kırpan mavi-yeşil ışık noktaları; kıyıya yakın daha iri ve yoğun
+  if (seaM > .01 && uSea.w > .01) {
+    // fırtına: dalga tepelerinde beyaz köpük
     float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
-    // perspektif satırlar: satır yüksekliği derinlikle büyür, her satırın hücre genişliği sabit (noktalar kaymaz)
-    float ya = 1.6, yb = (5.5 - 1.6) / 170., tt = max(q.y - uSea.y, 0.);
-    float gy = log(1. + yb * tt / ya) / yb, ry = floor(gy);
-    float tc = ya * (exp(yb * (ry + .5)) - 1.) / yb, dc = clamp(tc / 170., 0., 1.);
-    vec2 cs = vec2(mix(5., 11., dc), ya + yb * tc);
-    float gx = q.x / cs.x + hash(vec2(ry, 7.1)) * 13.;
-    vec2 id = vec2(floor(gx), ry), fc = vec2(fract(gx), fract(gy)) - .5;
-    float h = hash(id);
-    vec2 jt = (vec2(hash(id + 3.7), hash(id + 9.2)) - .5) * .6;     // nokta hücre içinde rastgele yerde
-    vec2 dd = (fc - jt) * cs;                                       // ekran pikseliyle yuvarlak nokta
-    float rr = mix(.8, 1.7, dc);
-    float tw = pow(max(0., sin(uT * (1.2 + h * 2.6) + h * 40.)), 4.);
-    float dotm = (exp(-dot(dd, dd) / (rr * rr)) + exp(-dot(dd, dd) / (rr * rr * 9.)) * .25) * step(.84, h) * tw;
-    float crest = sst(.45, .8, noise(vec2(p.x * .012 - uT * .08, p.y * mix(.25, .07, dpt) - uT * .35)));   // dalga tepeleri boyunca kümelenme
-    float haze = noise(vec2(p.x * .006 + uT * .03, p.y * .03)) * crest * .12;
-    float y = (dotm * (.5 + crest * 1.5) + haze) * (.55 + dpt * .7) * seaM * uYak;
-    e += vec3(.2, .95, .85) * y * 1.6;
+    float wc = sst(.66, .86, noise(vec2(q.x * mix(.06, .02, dpt) - uT * .5, (q.y - uSea.y) * mix(.6, .1, dpt) + uT * .3)));
+    e = mix(e, vec3(.82, .86, .9) * mix(1., .25, uNight), wc * uSea.w * seaM * (.18 + dpt * .25));
+  }
+  if (uYak > .001 && seaM > .01) {
+    // yakamoz: dalga tepelerinde kümelenen, göz kırpan mavi-yeşil ışık noktaları
+    float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
+    float dotm = seaDots(q, uSea.y, .84, 1., 0.);
+    float crest = sst(.45, .8, noise(vec2(p.x * .012 - uT * .08, p.y * mix(.25, .07, dpt) - uT * .35)));
+    float haze = noise(vec2(p.x * .006 + uT * .03, p.y * .03)) * crest * .1;
+    e += vec3(.2, .95, .85) * (dotm * (.5 + crest * 1.5) + haze) * (.55 + dpt * .7) * seaM * uYak * .75;
+  }
+  if (uPath.x > .001 && seaM > .01) {
+    // ay yolu (gece) / güneş yolu (gündüz): ufuktan kıyıya genişleyen, müzikle kıpırdayan ışık şeridi
+    float dpt = clamp((p.y - uSea.y) / 170., 0., 1.);
+    float cx = mix(1330., 960., uPath.y);
+    float w = mix(22., 240., dpt);
+    float m = exp(-pow((q.x - cx) / w, 2.));
+    float dts = seaDots(q, uSea.y, .55, 2.2, 5.);
+    float sh = .5 + .5 * sin(q.y * mix(1.4, .5, dpt) + uT * 2.2 + noise(q * .03) * 4.);
+    vec3 pc = mix(vec3(1., .9, .68), vec3(.78, .86, 1.), uPath.y);
+    e += pc * m * (dts * mix(1.5, 2.3, uPath.y) + sh * mix(.1, .3, uPath.y)) * seaM * uPath.x * mix(1., .8, uPath.y);
   }
   if (uBeam.z > .001) {
     // deniz feneri: yatay düzlemde dönen ışık; yana bakarken uzun şerit, bize dönünce parlama
-    float ang = uT * .85, side = cos(ang), toward = max(0., -sin(ang));
+    float ang = uT * .5, side = cos(ang), toward = max(0., -sin(ang));
     vec2 bd = p - uBeam.xy;
     float along = bd.x * sign(side), len = 1250. * abs(side);
     float tb = along / max(len, 1.);
@@ -843,6 +874,10 @@ void main(){
   vec2 vv = p / STAGE - .5;
   col *= 1. - dot(vv, vv) * .35;
   col += (hash(p + fract(uT) * 91.) - .5) * .018;
+  if (uBeam.z > .001) {   // fener tam bize dönünce göz kamaşır
+    float bf = beamFace(), gl = exp(-bf * bf / .012) * uBeam.z * (1. - uFog * .4);
+    col += vec3(1., .95, .82) * gl * (.07 + .55 * exp(-length((p - uBeam.xy) * vec2(1., 1.3)) / 240.));
+  }
   col *= 1. - uFade;                       // sahne geçişi: oda kararır
   outC = vec4(col, 1.);
 }`;
@@ -2226,7 +2261,7 @@ const GLARE = (() => {
 })();
 // mum: sahnenin önünde, masanın sol tarafında hayali bir mum
 const CANDLE_X = 300, CANDLE_Y = 980;
-let candleF = .7, candleN = 0, fireF = 0, yakS = 0;
+let candleF = .7, candleN = 0, fireF = 0, yakS = 0, pathS = 0, pathN = 1;
 const fireSparks = [];
 const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
@@ -2363,7 +2398,8 @@ function vizLabel(id) {
       if (SC.winter) return n ? 'Kor zerreleri' : 'Işık zerreleri';
       return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
     case 'sky': return n ? (overcast(c) ? 'Şehir ışıkları' : 'Kayan yıldız') : (overcast(c) ? 'Bulutlar' : 'Bulut gölgesi');
-    case 'wings': return !n ? 'Kelebekler' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
+    case 'wings': if (SC.sea) return dim ? 'Ay yolu' : 'Güneş yolu';
+      return !n ? 'Kelebekler' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
     case 'mirror': return overcast(c) ? 'Cam yansıması' : n ? 'Ay ışığı' : 'Cam parıltısı';
     case 'leaves': return dim ? 'Mum ışığı' : 'Yaprak ışığı';
     case 'prism': return dim ? ((SC.fire && SC.fire.name) || 'Şömine') : 'Gökkuşağı';
@@ -2558,6 +2594,7 @@ const VIZ_DRAW = {
   },
   // Kelebekler (gündüz) / Uçan fenerler (gece)
   wings(dt, c, night, wind) {
+    if (SC.sea) return;   // denizde: ay yolu / güneş yolu shader'da
     const e = levels.energy;
     if (night > .5 && badSky(c)) {
       // fener uçmaz: camdaki damlalar lambanın ışığını küçük bokeh noktaları gibi yakalar
@@ -2865,7 +2902,7 @@ function setSceneUniforms() {
   else gl.uniform4f(U.uFire, 0, 0, 0, 0);
   gl.uniform1f(U.uRecA, (SC.rec.rot || 0) * Math.PI / 180);
   { const cv = atmo.cur || {}, sunImg = SC.variants ? (cv.vM || 0) + (cv.vD || 0) : (SC.sunless ? 0 : 1);
-    gl.uniform4f(U.uSea, SC.sea ? 1 : 0, SC.sea ? SC.sea.horizon : 0, sunImg, 0); }
+    gl.uniform4f(U.uSea, SC.sea ? 1 : 0, SC.sea ? SC.sea.horizon : 0, sunImg, SC.sea ? (cv.storm || 0) : 0); }
   if (SC.beacon) {
     // fener sadece akşam görselinde ve gece yanar; sisli havada daha belirgin
     const cb = atmo.cur || {}, eve = SC.variants ? (cb.vEve ?? 1) : 1;
@@ -2962,7 +2999,10 @@ function drawGL(jitter) {
   gl.uniform1f(U.uCandle, vizRun === 'leaves' ? candleF * (sunGone(c) ? Math.max(.6, clamp((c.night - .5) * 2.5, 0, 1)) : 0) * vf : 0);
   gl.uniform1f(U.uCurtain, curtainS);
   { const yakT = (vizRun === 'fireflies' && SC.sea && sunGone(c)) ? (.55 + levels.bass * 1.8 + levels.high * .6) * vf : 0;
-    yakS += (yakT - yakS) * .12; gl.uniform1f(U.uYak, yakS); }
+    yakS += (yakT - yakS) * .12; gl.uniform1f(U.uYak, yakS);
+    const pathT = (vizRun === 'wings' && SC.sea) ? (.45 + levels.bass * 1.2 + levels.high * .8) * vf : 0;
+    pathS += (pathT - pathS) * .12; pathN += ((sunGone(c) ? 1 : 0) - pathN) * .05;
+    gl.uniform2f(U.uPath, pathS, pathN); }
   gl.uniform1f(U.uCoffee, (atmo.cur && atmo.cur.coffee) || 0);
   gl.uniform1f(U.uBass, levels.bass);
   fogAS += ((vizRun === 'breath' ? fogA * autoViz.fade : 0) - fogAS) * .08;
@@ -3639,7 +3679,8 @@ function renderVizMenu() {
     if (!fxOK(id)) continue;   // bu sahnede olmayan efekt menüde görünmez
     const b = document.createElement('button');
     b.className = 'opt' + (id === vizMode ? ' on' : '');
-    b.textContent = VIZ_DUAL[id] ? VIZ_DUAL[id][0] + ' / ' + VIZ_DUAL[id][1] : name;
+    const dn = (SC.fxNames && SC.fxNames[id]) || VIZ_DUAL[id];
+    b.textContent = dn ? dn[0] + ' / ' + dn[1] : name;
     b.onclick = () => { setViz(id); closeSheets(); };
     box.appendChild(b);
   }
