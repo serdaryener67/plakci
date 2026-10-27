@@ -1,6 +1,6 @@
 // Plakçı service worker
 // ÖNEMLİ: her güncellemede CACHE_NAME'deki sürüm numarasını artır (v1 -> v2 ...)
-const CACHE_NAME = 'plakci-v53';
+const CACHE_NAME = 'plakci-v54';
 
 // ilk kurulumda sadece uygulama ve ilk sahne indirilir; diğer sahneler ilk açıldıklarında önbelleğe girer
 const SHELL = [
