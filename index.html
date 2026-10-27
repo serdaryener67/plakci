@@ -583,7 +583,8 @@ uniform vec4 SHB, ARMB, uFogRect, uConeR;
 uniform vec3 uL1, uL2, uCupS;
 uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
 uniform float uFireHaze, uRecA, uYak, uGlass, uRipple;   // uGlass: 0 = açık kapı (cam yok)  |  uRipple: havuzda yağmur halkaları
-uniform vec2 uPath;   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
+uniform vec2 uPath;
+uniform vec4 uFlame;   // söndürülmüş görselde yakılan fener alevi: xy fitil, z boy, w güç   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -827,6 +828,20 @@ void main(){
     e = mix(e, fg.rgb * mix(1., .55 + uLamp * .5, uNight), fg.a * uFogA * fm);
   }
   vec3 col = mix(lightInterior(base, sun, p), e, ext);
+
+  // ---- fener: öğle görselinde söner; kapalı havada ya da Fener ışığı efektinde yeniden yakılır
+  if (uFlame.w > .003) {
+    vec2 fl = p - uFlame.xy;
+    float hgt = uFlame.z * (1. + uFire.w * 1.4 + .06 * sin(uT * 11.));
+    float v = clamp(-fl.y / hgt, 0., 1.);                       // 0 fitil, 1 uç
+    float sway = sin(uT * 7. + v * 3.) * 1.4 * v;
+    float wdt = uFlame.z * .36 * (1. - v * .85) * sqrt(max(v, 0.) * 3. + .2);
+    float core = sst(1., .35, abs(fl.x - sway) / max(wdt, .5)) * step(-3., -fl.y) * sst(1., .9, v) * step(fl.y, 2.);
+    float glow = exp(-length(fl * vec2(1., .8) + vec2(0., hgt * .4)) / 55.);
+    float glass = exp(-length((p - uFlame.xy - vec2(-6., -40.)) * vec2(1., .8)) / 70.);   // camın içi sıcak dolar
+    col = col * (1. + vec3(.9, .5, .2) * glass * 1.5 * uFlame.w) + vec3(1., .62, .25) * glow * .95 * uFlame.w;
+    col = mix(col, mix(vec3(1., .55, .18), vec3(1., .93, .7), sst(.6, .1, v)), core * .92 * uFlame.w);
+  }
 
   // ---- gizli kahve: kitabın yanında, masada fincan ve kozalak (ışığa göre aydınlatılır)
   if (uCoffee > .005) {
@@ -2226,7 +2241,7 @@ const GLARE = (() => {
 })();
 // mum: sahnenin önünde, masanın sol tarafında hayali bir mum
 const CANDLE_X = 300, CANDLE_Y = 980;
-let candleF = .7, candleN = 0, fireF = 0, yakS = 0, pathS = 0, pathN = 1;
+let candleF = .7, candleN = 0, fireF = 0, yakS = 0, pathS = 0, pathN = 1, lanternLit = 0;
 const fireSparks = [];
 const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
@@ -2859,9 +2874,14 @@ function setSceneUniforms() {
   gl.uniform3fv(U.uL1, SC.lamp1); gl.uniform3fv(U.uL2, SC.lamp2); gl.uniform1f(U.uCurtK, SC.curtain);
   gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
   if (SC.fire) {
-    const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - ((atmo.cur && atmo.cur.vD) || 0) : 1);
+    // öğle görselinde fener sönük: kapalı havada (lamba yanar) ya da Fener ışığı efektinde yeniden yakılır
+    const cf = atmo.cur || {}, vD = cf.vD || 0;
+    const litT = SC.fire.offAtNoon ? ((vizRun === 'prism' && sunGone(cf)) ? 1 : clamp(((cf.lamp || 0) - .1) * 5, 0, 1)) : 0;
+    lanternLit += (litT - lanternLit) * .05;
+    const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - vD * (1 - lanternLit) : 1);
+    gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.y + 30, 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
     gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, fk, fireF * (fk > 0 ? 1 : 0)); gl.uniform4fv(U.uFireR, SC.fire.rect); gl.uniform1f(U.uFireHaze, SC.fire.haze ?? 1); }
-  else gl.uniform4f(U.uFire, 0, 0, 0, 0);
+  else { gl.uniform4f(U.uFire, 0, 0, 0, 0); gl.uniform4f(U.uFlame, 0, 0, 0, 0); }
   gl.uniform1f(U.uRecA, (SC.rec.rot || 0) * Math.PI / 180);
   gl.uniform1f(U.uGlass, SC.noGlass ? 0 : 1); gl.uniform1f(U.uRipple, SC.sea && SC.sea.pond ? 1 : 0);
   { const cv = atmo.cur || {}, sunImg = SC.variants ? (cv.vM || 0) + (cv.vD || 0) : (SC.sunless ? 0 : 1);
