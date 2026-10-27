@@ -480,12 +480,12 @@ const SCENES = {
             [[1624,0],[1617,555],[1124,521],[1117,517],[1107,432],[1109,48],[1126,41],[1359,0]]],
     plant: [[290,315],[345,315],[352,398],[412,440],[412,520],[372,560],[392,665],[262,665],[275,560],[228,520],[228,440],[286,398]],
     lamp1: [320, 476, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
-    sunless: true,     // görsel akşam: sabah/öğle görselleri gelene kadar güneş yok sayılır
+    variants: ['scene6m.webp', 'scene6d.webp', 'disc6m.webp', 'disc6d.webp', 'sheen6m.png', 'sheen6d.png', 'arm6d.png'],
     noLeaves: true,
     fxNames: { prism: ['Gökkuşağı', 'Lamba ışığı'] },
     // mozaik lamba: titreyen renkli ışık
-    fire: { x: 320, y: 476, k: .75, rect: [238, 400, 165, 150], haze: 0, sparks: false, name: 'Lamba ışığı', offAtNoon: true, paper: [240, 402, 160, 146] },
-    sea: { horizon: 362, k: .6, px: 1460, pw: .75 },   // Boğaz: akıntılı su; ay/güneş yolu sağ camda
+    fire: { x: 320, y: 476, k: .75, rect: [238, 400, 165, 150], haze: 0, sparks: false, name: 'Lamba ışığı', offAtNoon: true, offAtMorning: true, paper: [240, 402, 160, 146] },   // sabah ve öğle görselinde lamba sönük
+    sea: { horizon: 362, k: .6, px: 1200, pw: .7 },    // Boğaz: akıntılı su; ay/güneş yolu sağ camda, vapurun solunda
     bridge: [272, 800, 245, 302],                      // köprü ışıklarının bandı
     lights: [[1392, 376], [1210, 332], [1330, 318], [1460, 300], [1560, 312], [720, 318], [500, 348], [1270, 340], [1500, 330]],
     fogRect: [270, 0, 1355, 575], cup: [1180, 800, 180], cone: [1292, 672, 112, 115],
@@ -2938,8 +2938,8 @@ function setSceneUniforms() {
   gl.uniform4fv(U.uFogRect, SC.fogRect); gl.uniform3fv(U.uCupS, SC.cup); gl.uniform4fv(U.uConeR, SC.cone);
   if (SC.fire) {
     // öğle görselinde fener sönük: kapalı havada (lamba yanar) ya da Fener ışığı efektinde yeniden yakılır
-    const cf = atmo.cur || {}, vD = cf.vD || 0;
-    const litT = SC.fire.offAtNoon ? ((vizRun === 'prism' && sunGone(cf)) ? 1 : clamp(((cf.lamp || 0) - .1) * 5, 0, 1)) : 0;
+    const cf = atmo.cur || {}, vD = (cf.vD || 0) + (SC.fire.offAtMorning ? (cf.vM || 0) : 0);   // lambanın sönük olduğu görsellerin ağırlığı
+    const litT = SC.fire.offAtNoon ? ((vizRun === 'prism' && sunGone(cf)) ? 1 : clamp(((cf.ov || 0) - .4) * 3, 0, 1)) : 0;   // kapalı havada ya da efektte yanar; açık sabahta sönük
     lanternLit += (litT - lanternLit) * .05;
     const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - vD * (1 - lanternLit) : 1);
     gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.y + 30, 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
