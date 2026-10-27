@@ -1,7 +1,8 @@
 // Plakçı service worker
 // ÖNEMLİ: her güncellemede CACHE_NAME'deki sürüm numarasını artır (v1 -> v2 ...)
-const CACHE_NAME = 'plakci-v52';
+const CACHE_NAME = 'plakci-v53';
 
+// ilk kurulumda sadece uygulama ve ilk sahne indirilir; diğer sahneler ilk açıldıklarında önbelleğe girer
 const SHELL = [
   './',
   './index.html',
@@ -11,54 +12,6 @@ const SHELL = [
   './disc.webp',
   './sheen.png',
   './arm.png',
-  './scene2.webp',
-  './maps2.png',
-  './disc2.webp',
-  './sheen2.png',
-  './arm2.png',
-  './scene2m.webp',
-  './scene2d.webp',
-  './disc2m.webp',
-  './disc2d.webp',
-  './sheen2m.png',
-  './sheen2d.png',
-  './arm2d.png',
-  './scene3.webp',
-  './maps3.png',
-  './disc3.webp',
-  './sheen3.png',
-  './arm3.png',
-  './scene3m.webp',
-  './scene3d.webp',
-  './disc3m.webp',
-  './disc3d.webp',
-  './sheen3m.png',
-  './sheen3d.png',
-  './arm3d.png',
-  './scene4.webp',
-  './maps4.png',
-  './disc4.webp',
-  './sheen4.png',
-  './arm4.png',
-  './scene4m.webp',
-  './scene4d.webp',
-  './disc4m.webp',
-  './disc4d.webp',
-  './sheen4m.png',
-  './sheen4d.png',
-  './arm4d.png',
-  './scene5.webp',
-  './maps5.png',
-  './disc5.webp',
-  './sheen5.png',
-  './arm5.png',
-  './scene5m.webp',
-  './scene5d.webp',
-  './disc5m.webp',
-  './disc5d.webp',
-  './sheen5m.png',
-  './sheen5d.png',
-  './arm5d.png',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png'
@@ -90,6 +43,9 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // görseller ve diğer dosyalar: önce önbellek
-  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
+  // görseller ve diğer dosyalar: önce önbellek; yoksa ağdan alınır ve sonraki açılışlar için saklanır
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request).then((r) => {
+    if (r.ok) { const copy = r.clone(); caches.open(CACHE_NAME).then((c) => c.put(e.request, copy)); }
+    return r;
+  })));
 });

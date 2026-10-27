@@ -569,8 +569,9 @@ precision highp float;
 in vec2 vP;
 out vec4 outC;
 uniform sampler2D uScene, uMaps, uDisc, uLabel, uSheen, uArm, uCup, uCone, uFogTex;
-uniform sampler2D uSceneM, uSceneD, uDiscM, uDiscD, uSheenM, uSheenD, uArmD;
-uniform vec3 uWv;          // akşam, sabah, öğle görsellerinin ağırlığı
+uniform sampler2D uSceneB, uDiscB, uSheenB, uArmD;
+uniform vec2 uWv;          // o an karışan iki zaman görselinin (A, B) ağırlığı
+uniform float uArmW;       // gündüz kol katmanının ağırlığı
 uniform float uSunImg;     // görselde güneş lekesi var mı (güneşli görsellerin ağırlığı)
 uniform float uFogA;
 uniform float uCoffee, uBass;
@@ -589,7 +590,7 @@ uniform vec4 uPath;   // z: yolun merkezi x (0 = varsayılan), w: genişlik çar
 uniform vec4 uFlame, uPaper;   // uPaper: kâğıt fenerin (andon) yeniden yakılan kâğıt alanı   // söndürülmüş görselde yakılan fener alevi: xy fitil, z boy, w güç   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
-vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
+vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneB, uv) * uWv.y; }
 float sst(float a, float b, float x){ float t = clamp((x - a) / (b - a), 0., 1.); return t * t * (3. - 2. * t); }
 float hash(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
@@ -886,13 +887,13 @@ void main(){
     float cs = cos(-uRot), sn = sin(-uRot);
     vec2 dr = vec2(cs * d.x - sn * d.y, sn * d.x + cs * d.y);
     vec2 duv = dr / (2. * RR) + .5;
-    vec4 disc = texture(uDisc, duv) * uWv.x + texture(uDiscM, duv) * uWv.y + texture(uDiscD, duv) * uWv.z;
+    vec4 disc = texture(uDisc, duv) * uWv.x + texture(uDiscB, duv) * uWv.y;
     vec3 rc = mix(base, disc.rgb, disc.a);
     float la = sst(LR + .8, LR - .8, r);
     vec3 lab = texture(uLabel, dr / (2. * LR) + .5).rgb;
     rc = mix(rc, lab, la);
     vec2 sv = (p - SHB.xy) / SHB.zw;
-    vec3 sh = (texture(uSheen, sv).rgb * uWv.x + texture(uSheenM, sv).rgb * uWv.y + texture(uSheenD, sv).rgb * uWv.z) * (.18 + .82 * uDay) * (1. - la * .5);
+    vec3 sh = (texture(uSheen, sv).rgb * uWv.x + texture(uSheenB, sv).rgb * uWv.y) * (.18 + .82 * uDay) * (1. - la * .5);
     rc = 1. - (1. - rc) * (1. - sh);
     float a = max(disc.a, la);
     col = mix(col, lightInterior(rc, 0., p), a);
@@ -918,7 +919,7 @@ void main(){
   vec2 qa = inv * (p + vec2(0., uArmLift) - PIV) + PIV;
   vec2 ua = (qa - ARMB.xy) / ARMB.zw;
   if (all(greaterThan(ua, vec2(0.))) && all(lessThan(ua, vec2(1.)))) {
-    vec4 am = mix(texture(uArm, ua), texture(uArmD, ua), uWv.y + uWv.z);
+    vec4 am = mix(texture(uArm, ua), texture(uArmD, ua), uArmW);
     col = mix(col, lightInterior(am.rgb, 0., p), am.a);
   }
 
@@ -2922,14 +2923,20 @@ function setSceneUniforms() {
   } else gl.uniform4f(U.uBeam, 0, 0, 0, 0);
   gl.uniform1f(U.uFade, sceneFade);
   const cc = atmo.cur || {};
-  if (SC.variants) { const e = cc.vEve ?? 1, m = cc.vM || 0, d = cc.vD || 0, t = (e + m + d) || 1; gl.uniform3f(U.uWv, e / t, m / t, d / t); gl.uniform1f(U.uSunImg, (m + d) / t); }
-  else { gl.uniform3f(U.uWv, 1, 0, 0); gl.uniform1f(U.uSunImg, 1); }
+  if (SC.variants) {
+    const e = cc.vEve ?? 1, m = cc.vM || 0, d = cc.vD || 0, t = (e + m + d) || 1, w = [e / t, m / t, d / t];
+    // en ağır iki görsel A ve B yuvalarına bağlanır (aynı anda en fazla iki zaman karışır)
+    const a = w.indexOf(Math.max(...w)), b = [0, 1, 2].filter(i => i !== a).sort((i, j) => w[j] - w[i])[0];
+    const s2 = (w[a] + w[b]) || 1;
+    bindTimeSlots(a, b); gl.uniform2f(U.uWv, w[a] / s2, w[b] / s2);
+    gl.uniform1f(U.uSunImg, (m + d) / t); gl.uniform1f(U.uArmW, (m + d) / t);
+  } else { bindTimeSlots(0, 0); gl.uniform2f(U.uWv, 1, 0); gl.uniform1f(U.uSunImg, 1); gl.uniform1f(U.uArmW, 0); }
 }
 /* ---------- sahne değişimi: oda kararır, yeni oda ışıkla açılır; plak ve müzik kesilmez ---------- */
 let sceneId = 'window', sceneFade = 0, sceneBusy = false, sceneMode = store.get('scene', 'auto');
 const sceneImgs = {};
 async function loadSceneImgs(id) {
-  if (!sceneImgs[id]) {
+  if (!sceneImgs[id] || sceneImgs[id][0].width === 0) {   // kapatılmış (close) görseller yeniden yüklenir
     const sc = SCENES[id];
     const main = await Promise.all(sc.files.map(loadImg));
     const v = sc.variants ? await Promise.all(sc.variants.map(loadImg)) : [main[0], main[0], main[2], main[2], main[3], main[3], main[4]];
@@ -2969,11 +2976,45 @@ function tweenReal(dur, fn) {
   if (document.hidden) { fn(1); return Promise.resolve(); }
   return new Promise(res => { const t0 = performance.now(); const st = (n) => { const k = Math.min(1, (n - t0) / 1000 / dur); fn(ease(k)); if (k < 1) requestAnimationFrame(st); else res(); }; requestAnimationFrame(st); });
 }
-const VAR_TEX = ['uSceneM', 'uSceneD', 'uDiscM', 'uDiscD', 'uSheenM', 'uSheenD', 'uArmD'];
+// ---- sahne dokuları: her görsel kendi GL dokusu; shader'a o an sadece iki zaman (A/B) bağlanır
+// toplam 13 doku birimi (telefonların çoğunda sınır 16): eski cihazlarda da güvenli
+const SLOT = { uScene: 0, uDisc: 2, uSheen: 3, uArm: 4, uSceneB: 9, uDiscB: 10, uSheenB: 11, uArmD: 12 };
+let sceneGL = null, boundA = -1, boundB = -1;
+function glTex(src, mip) {
+  const t = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + 13);                       // yükleme için boş birim: bağlı dokular bozulmaz
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  if (mip) {
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(8, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+  } else gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  return t;
+}
+function bindUnit(unit, t) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); }
+function bindTimeSlots(a, b) {
+  if (!sceneGL || (a === boundA && b === boundB)) return;
+  boundA = a; boundB = b;
+  bindUnit(SLOT.uScene, sceneGL.scene[a]); bindUnit(SLOT.uDisc, sceneGL.disc[a]); bindUnit(SLOT.uSheen, sceneGL.sheen[a]);
+  bindUnit(SLOT.uSceneB, sceneGL.scene[b]); bindUnit(SLOT.uDiscB, sceneGL.disc[b]); bindUnit(SLOT.uSheenB, sceneGL.sheen[b]);
+}
 function bindSceneTex(imgs) {
-  const [sc, mp, ds, sh, am] = imgs;
-  updateTex('uScene', sc); updateTex('uMaps', mp); updateTex('uDisc', ds); updateTex('uSheen', sh); updateTex('uArm', am);
-  VAR_TEX.forEach((n, i) => updateTex(n, imgs[5 + i]));
+  // önceki sahnenin dokuları GPU'dan silinir (bellek bir sahne kadar kalır)
+  if (sceneGL) for (const t of sceneGL.all) gl.deleteTexture(t);
+  const [sc, mp, ds, sh, am, sM, sD, dM, dD, hM, hD, aD] = imgs;
+  const made = new Map(), g = (im, mip) => { if (!made.has(im)) made.set(im, glTex(im, mip)); return made.get(im); };
+  sceneGL = { scene: [g(sc), g(sM), g(sD)], disc: [g(ds, 1), g(dM, 1), g(dD, 1)], sheen: [g(sh), g(hM), g(hD)], all: null };
+  const armE = g(am, 1), armD = g(aD, 1);
+  sceneGL.all = [...made.values()];
+  updateTex('uMaps', mp);
+  bindUnit(SLOT.uArm, armE); bindUnit(SLOT.uArmD, armD);
+  boundA = boundB = -1; bindTimeSlots(0, 0);
+  // GPU'ya yüklendi: çözülmüş görseller bellekten atılır (sahneye dönülürse önbellekten hızla yeniden okunur)
+  for (const im of new Set(imgs)) if (im && im.close) im.close();
 }
 function wantedScene() {
   if (sceneMode !== 'auto') return sceneMode;
@@ -3848,17 +3889,14 @@ document.addEventListener('visibilitychange', () => {
     const startImgs = await loadSceneImgs(startId);
     const [scene, maps, disc, sheen, arm] = startImgs;
     applySceneConfig(startId);
-    makeTex(0, 'uScene', scene, false);
     makeTex(1, 'uMaps', maps, false);
-    makeTex(2, 'uDisc', disc, true);
-    makeTex(3, 'uSheen', sheen, false);
-    makeTex(4, 'uArm', arm, true);
+    for (const n in SLOT) gl.uniform1i(U[n], SLOT[n]);
     drawLabel(null, null);
     makeTex(5, 'uLabel', labelCanvas, true);
     makeTex(6, 'uCup', makeCup(), true);
     makeTex(7, 'uCone', makeCone(), true);
     makeTex(8, 'uFogTex', fogOutCv, false);
-    VAR_TEX.forEach((n, i) => makeTex(9 + i, n, startImgs[5 + i], /Disc|Arm/.test(n)));
+    bindSceneTex(startImgs);
     glReady = true;
   } catch (e) {
     console.error(e);
