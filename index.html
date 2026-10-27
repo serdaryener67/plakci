@@ -372,6 +372,7 @@ const STAGE_W = 1659, STAGE_H = 948;
 /* ---------- sahneler: her biri kendi görseli, plağı, kolu, camı ve ışıklarıyla ---------- */
 const SCENES = {
   window: {
+    city: true,
     name: 'Pencere kenarı', files: ['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'],
     rec: { cx: 798, cy: 535, rx: 276, ry: 76, labelR: 103 },
     arm: { pivotX: 1121, pivotY: 528, ke: 0.6, startDeg: 53, endDeg: 72, x: 1076, y: 446, w: 102, h: 213 },
@@ -386,6 +387,7 @@ const SCENES = {
     secret: [[470, 300, 625, 475]]
   },
   attic: {
+    city: true,
     name: 'Çatı katı', files: ['scene2.webp', 'maps2.png', 'disc2.webp', 'sheen2.png', 'arm2.png'],
     rec: { cx: 745, cy: 581, rx: 211, ry: 65, labelR: 63 },
     arm: { pivotX: 1007, pivotY: 528, ke: 0.4, startDeg: 30, endDeg: 56, x: 994, y: 520, w: 60, h: 116 },
@@ -2095,8 +2097,9 @@ function drawFX(dt) {
   const fn = VIZ_DRAW[fxOK(vizRun) ? vizRun : 'bokeh'];   // sahneye uymayan efekt yerine bokeh
   // güneş yoksa (gece ya da kapalı gündüz) güneşe bağlı efektler lamba haline geçer
   const dimN = sunGone(c) ? 1 : night;
-  const nightLike = SC.variants ? Math.max(night, (c.vEve || 0) > .5 ? .6 : 0) : night;   // akşam görselinde gece efektleri
-  if (fn) fn(dt, c, SC.sunless ? Math.max(night, .6) : (SUN_FX.has(vizRun) ? dimN : nightLike), wind);
+  const nightLike = (SC.variants || SC.sunless) ? Math.max(night, (c.vEve || 0) > .5 ? .6 : 0) : night;   // akşam görselinde gece efektleri
+  // güneşsiz görsel: güneşe bağlı efektler lamba haline geçer, diğerleri gerçek saati izler (gündüz kayan yıldız olmaz)
+  if (fn) fn(dt, c, SUN_FX.has(vizRun) ? (SC.sunless ? Math.max(night, .6) : dimN) : nightLike, wind);
   vizMul = 1;
   fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
   fx.lineCap = 'butt'; fx.shadowBlur = 0;
@@ -2234,6 +2237,19 @@ function stepBubbles(dt, e, wind) {
 const glintArr = Array.from({ length: 30 }, () => ({ a: rnd(0, 6.28), r: rnd(.42, .97), ph: rnd(0, 6.28), s: rnd(.6, 1.3) }));
 const puffs = Array.from({ length: 12 }, (_, i) => ({ x: rnd(-100, 1700), y: rnd(470, 800), w: rnd(280, 560), h: rnd(70, 150), v: rnd(8, 22) * (i % 2 ? 1 : -1), b: i % BANDS, ph: rnd(0, 6.28) }));
 const lanterns = [];
+// camdaki (ya da açık kapıda süzülen) damlaların yakaladığı ışık: yuvarlak bokeh noktaları
+function drawGlassLights(dt) {
+  const G = SC.fogRect;
+  fx.save(); clipGlass(fx);
+  for (const d of glassLights) {
+    d.y += d.v * dt * (Math.random() < .02 ? 6 : 1);
+    if (d.y > G[1] + G[3] || d.x < G[0] || d.x > G[0] + G[2]) { d.y = rnd(G[1] - 10, G[1] + 200); d.x = rnd(G[0] + 10, G[0] + G[2] - 10); }
+    const b = bands[d.b];
+    fx.globalAlpha = clamp(.18 + b * .6 + Math.sin(T * 2 + d.ph) * .06, 0, .75);
+    fx.drawImage(ORB_NIGHT[d.c], d.x - d.r, d.y - d.r, d.r * 2, d.r * 2);
+  }
+  fx.restore();
+}
 // ay huzmesi ve düştüğü soğuk ışık havuzu
 const RAY_MOON = makeRay([175, 200, 255]);
 const POOL_MOON = makeOrb([170, 195, 255], false);
@@ -2366,6 +2382,10 @@ const candlePools = [
 function fxOK(id) { return !(SC.noFx && SC.noFx.includes(id)); }
 const SUN_FX = new Set(['rays', 'dust', 'leaves', 'prism', 'glints', 'pulse']);   // güneş ister, yoksa lambaya döner
 function sunGone(c) { return SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5 || (c.day || 0) < .3; }
+// görsel ve saat birlikte: akşam/gece görseli ya da gerçek gece
+function nightNow(c) { return (c.night || 0) > .5 || ((SC.variants || SC.sunless) && (c.vEve || 0) > .5); }
+// denizde ay/güneş yolu ancak gökyüzü açıkken ve ışık kaynağı varken olur
+function seaPathOK(c) { return !badSky(c) && !overcast(c) && (nightNow(c) || !sunGone(c)); }
 function overcast(c) { return (c.ov || 0) > .5; }
 function precip(c) { return (c.rain || 0) + (c.snow || 0) + (c.storm || 0) > .3; }
 function badSky(c) { return precip(c) || (c.fog || 0) > .4 || (c.wind || 0) > .5; }
@@ -2377,13 +2397,13 @@ const VIZ_DUAL = {
 function vizLabel(id) {
   if (id === 'auto') return 'Oto · ' + vizLabel(vizRun);
   if (id !== 'off' && !fxOK(id)) return 'Bokeh';
-  const c = atmo.target || atmo.cur || {}, n = SC.sunless || (SC.variants && (c.vEve || 0) > .5) || (c.night || 0) > .5, dim = sunGone(c);
+  const c = atmo.target || atmo.cur || {}, n = ((SC.sunless || SC.variants) && (c.vEve || 0) > .5) || (c.night || 0) > .5, dim = sunGone(c);
   switch (id) {
-    case 'fireflies': if (SC.sea && !SC.sea.pond) return dim ? 'Yakamoz' : 'Işık zerreleri';
+    case 'fireflies': if (SC.sea && !SC.sea.pond) return n ? 'Yakamoz' : 'Işık zerreleri';
       if (SC.winter) return n ? 'Kor zerreleri' : 'Işık zerreleri';
       return !n ? 'Polen' : precip(c) ? 'Işık zerreleri' : 'Ateş böceği';
-    case 'sky': return n ? (overcast(c) ? 'Şehir ışıkları' : 'Kayan yıldız') : (overcast(c) ? 'Bulutlar' : 'Bulut gölgesi');
-    case 'wings': if (SC.sea && !SC.sea.pond) return dim ? 'Ay yolu' : 'Güneş yolu';
+    case 'sky': return n ? (overcast(c) ? (SC.city ? 'Şehir ışıkları' : 'Bulutlu gece') : 'Kayan yıldız') : (overcast(c) || dim ? 'Bulutlar' : 'Bulut gölgesi');
+    case 'wings': if (SC.sea && !SC.sea.pond) return !seaPathOK(c) ? 'Camda damlalar' : n ? 'Ay yolu' : 'Güneş yolu';
       if (SC.leafFall) return n ? (badSky(c) ? 'Işık damlaları' : 'Havuzda ay') : 'Akçaağaç yaprakları';
       return !n ? 'Sabun köpüğü' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
     case 'mirror': return overcast(c) ? 'Cam yansıması' : n ? 'Ay ışığı' : 'Cam parıltısı';
@@ -2442,7 +2462,7 @@ const VIZ_DRAW = {
   // Polen (gündüz) / Ateş böceği (gece)
   fireflies(dt, c, night, wind) {
     const isN = night > .5;
-    if (SC.sea && !SC.sea.pond && sunGone(c)) return;   // denizde gece: yakamoz shader'da çizilir
+    if (SC.sea && !SC.sea.pond && nightNow(c)) return;   // denizde gece: yakamoz shader'da çizilir
     for (const f of flies) {
       f.a += (Math.sin(T * .5 + f.ph) * .8) * dt;
       const sp = isN ? f.sp : f.sp * .45;
@@ -2525,7 +2545,7 @@ const VIZ_DRAW = {
   // Kuşlar (gündüz) / Kayan yıldız (gece)
   sky(dt, c, night) {
     fx.save(); clipGlass(fx);
-    if (overcast(c)) {
+    if (overcast(c) || (night <= .5 && sunGone(c))) {   // güneş yoksa gündüz gölge değil, alçak bulutlar
       // kapalı hava: yıldız ya da güneş gölgesi olmaz. Gece bulutlara vuran şehir ışığı, gündüz alçaktan geçen bulutlar
       const n = night > .5;
       for (const L of lowClouds) {
@@ -2580,20 +2600,13 @@ const VIZ_DRAW = {
   },
   // Sabun köpüğü (gündüz) / Uçan fenerler (gece)
   wings(dt, c, night, wind) {
-    if (SC.sea && !SC.sea.pond) return;   // denizde: ay yolu / güneş yolu shader'da
+    if (SC.sea && !SC.sea.pond) {   // denizde: açık havada ay yolu / güneş yolu (shader), kapalı havada camdaki damlalar
+      if (seaPathOK(c)) return;
+      drawGlassLights(dt); return;
+    }
     if (SC.leafFall && night > .5 && !badSky(c)) return;   // Japon bahçesi açık gece: havuzda ay (shader); fener uçmaz
     const e = levels.energy;
-    if (night > .5 && badSky(c)) {
-      // fener uçmaz: camdaki damlalar lambanın ışığını küçük bokeh noktaları gibi yakalar
-      fx.save(); clipGlass(fx);
-      for (const d of glassLights) {
-        d.y += d.v * dt * (Math.random() < .02 ? 6 : 1); if (d.y > 440) { d.y = rnd(-10, 200); d.x = rnd(150, 1220); }
-        const b = bands[d.b];
-        fx.globalAlpha = clamp(.18 + b * .6 + Math.sin(T * 2 + d.ph) * .06, 0, .75);
-        fx.drawImage(ORB_NIGHT[d.c], d.x - d.r, d.y - d.r, d.r * 2, d.r * 2);
-      }
-      fx.restore(); return;
-    }
+    if (night > .5 && badSky(c)) { drawGlassLights(dt); return; }   // fener uçmaz: camdaki damlalar ışığı yakalar
     if (night > .5) {
       // pencerenin ardında süzülerek yükselen kâğıt fenerler
       if (lanterns.length < 18 && Math.random() < dt * (1.1 + e * 3))
@@ -2990,12 +3003,12 @@ function drawGL(jitter) {
   gl.uniform1f(U.uGlow, vizRun === 'pulse' ? glowS * vf : 0);
   gl.uniform1f(U.uCandle, vizRun === 'leaves' ? candleF * (sunGone(c) ? Math.max(.6, clamp((c.night - .5) * 2.5, 0, 1)) : 0) * vf : 0);
   gl.uniform1f(U.uCurtain, curtainS);
-  { const yakT = (vizRun === 'fireflies' && SC.sea && !SC.sea.pond && sunGone(c)) ? (.55 + levels.bass * 1.8 + levels.high * .6) * vf : 0;
+  { const yakT = (vizRun === 'fireflies' && SC.sea && !SC.sea.pond && nightNow(c)) ? (.55 + levels.bass * 1.8 + levels.high * .6) * vf : 0;
     yakS += (yakT - yakS) * .12; gl.uniform1f(U.uYak, yakS);
     // havuzda ay: Japon bahçesinde açık gecede ayın havuza düşen titrek yansıması
     const pondMoon = !!(SC.leafFall && SC.sea && SC.sea.pond && sunGone(c) && !badSky(c));
-    const pathT = (vizRun === 'wings' && SC.sea && (!SC.sea.pond || pondMoon)) ? (.45 + levels.bass * 1.2 + levels.high * .8) * vf : 0;
-    pathS += (pathT - pathS) * .12; pathN += ((sunGone(c) ? 1 : 0) - pathN) * .05;
+    const pathT = (vizRun === 'wings' && SC.sea && ((!SC.sea.pond && seaPathOK(c)) || pondMoon)) ? (.45 + levels.bass * 1.2 + levels.high * .8) * vf : 0;
+    pathS += (pathT - pathS) * .12; pathN += ((nightNow(c) ? 1 : 0) - pathN) * .05;
     gl.uniform4f(U.uPath, pathS, pondMoon ? 1 : pathN, pondMoon ? 905 : 0, pondMoon ? .5 : 1); }
   gl.uniform1f(U.uCoffee, (atmo.cur && atmo.cur.coffee) || 0);
   gl.uniform1f(U.uBass, levels.bass);

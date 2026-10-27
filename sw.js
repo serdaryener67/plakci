@@ -1,6 +1,6 @@
 // Plakçı service worker
 // ÖNEMLİ: her güncellemede CACHE_NAME'deki sürüm numarasını artır (v1 -> v2 ...)
-const CACHE_NAME = 'plakci-v50';
+const CACHE_NAME = 'plakci-v51';
 
 const SHELL = [
   './',
