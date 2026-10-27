@@ -457,12 +457,12 @@ const SCENES = {
     plant: [[790,478],[800,475],[816,475],[826,482],[826,496],[816,503],[800,503],[790,496]],
     fogK: .55,         // açık havada sis perde gibi değil, hafif tül gibi
     lamp1: [118, 450, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
-    sunless: true,     // görsel akşam: sabah/öğle görselleri gelene kadar güneş yok sayılır
+    variants: ['scene5m.webp', 'scene5d.webp', 'disc5m.webp', 'disc5d.webp', 'sheen5m.png', 'sheen5d.png', 'arm5d.png'],
     noGlass: true,     // açık sürgü kapı: camda damla ve buğu yok
     noFx: ['breath', 'mirror'],
     leafFall: true, windLeaf: 'rgba(190,60,30,.85)',
     fxNames: { wings: ['Akçaağaç yaprakları', 'Havuzda ay'], prism: ['Gökkuşağı', 'Fener ışığı'] },
-    fire: { x: 118, y: 450, k: .7, rect: [35, 325, 170, 240], haze: 0, sparks: false, name: 'Fener ışığı' },   // andon: kâğıt fener
+    fire: { x: 118, y: 450, k: .7, rect: [35, 325, 170, 240], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true, paper: [48, 335, 150, 222] },   // andon: kâğıt fener (öğle görselinde sönük)
     sea: { horizon: 390, k: .3, pond: true },   // koi havuzu: hafif kıpırtı, yağmurda halkalar
     lights: [[960, 258], [1355, 165], [1372, 205], [968, 468], [1340, 240]],
     fogRect: [464, 0, 934, 538], cup: [1180, 655, 165], cone: [1300, 505, 105, 108],
@@ -586,7 +586,7 @@ uniform vec3 uL1, uL2, uCupS;
 uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
 uniform float uFireHaze, uRecA, uYak, uGlass, uRipple;   // uGlass: 0 = açık kapı (cam yok)  |  uRipple: havuzda yağmur halkaları
 uniform vec4 uPath;   // z: yolun merkezi x (0 = varsayılan), w: genişlik çarpanı
-uniform vec4 uFlame;   // söndürülmüş görselde yakılan fener alevi: xy fitil, z boy, w güç   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
+uniform vec4 uFlame, uPaper;   // uPaper: kâğıt fenerin (andon) yeniden yakılan kâğıt alanı   // söndürülmüş görselde yakılan fener alevi: xy fitil, z boy, w güç   // x: deniz yolu gücü, y: 0 güneş yolu / 1 ay yolu   // uYak: yakamoz gücü (deniz, gece)   // şömine: xy konum, z güç, w titreme  |  alev dikdörtgeni
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneM, uv) * uWv.y + texture(uSceneD, uv) * uWv.z; }
@@ -837,7 +837,15 @@ void main(){
   vec3 col = mix(lightInterior(base, sun, p), e, ext);
 
   // ---- fener: öğle görselinde söner; kapalı havada ya da Fener ışığı efektinde yeniden yakılır
-  if (uFlame.w > .003) {
+  if (uFlame.w > .003 && uPaper.z > 0.) {
+    // andon: alev görünmez, kâğıt içten ısınır; kenarlara doğru sönen sıcak dolgu
+    vec2 pr2 = (p - uPaper.xy) / uPaper.zw;
+    float pm = sst(0., .12, pr2.x) * sst(1., .88, pr2.x) * sst(0., .1, pr2.y) * sst(1., .9, pr2.y);
+    float core = exp(-length((pr2 - vec2(.5, .62)) * vec2(1.4, 1.)) * 2.2);
+    float fl2 = 1. + uFire.w * 1.5;
+    col = col * (1. + vec3(1.1, .62, .25) * pm * (.55 + core) * uFlame.w * fl2) + vec3(1., .66, .32) * pm * core * .35 * uFlame.w * fl2;
+    col += vec3(1., .6, .28) * exp(-length((p - uPaper.xy - uPaper.zw * .5) * vec2(1., .8)) / 140.) * .12 * uFlame.w;   // çevreye vuran ışık
+  } else if (uFlame.w > .003) {
     vec2 fl = p - uFlame.xy;
     float hgt = uFlame.z * (1. + uFire.w * 1.4 + .06 * sin(uT * 11.));
     float v = clamp(-fl.y / hgt, 0., 1.);                       // 0 fitil, 1 uç
@@ -2899,6 +2907,7 @@ function setSceneUniforms() {
     lanternLit += (litT - lanternLit) * .05;
     const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - vD * (1 - lanternLit) : 1);
     gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.y + 30, 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
+    if (SC.fire.paper) gl.uniform4fv(U.uPaper, SC.fire.paper); else gl.uniform4f(U.uPaper, 0, 0, 0, 0);
     gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, fk, fireF * (fk > 0 ? 1 : 0)); gl.uniform4fv(U.uFireR, SC.fire.rect); gl.uniform1f(U.uFireHaze, SC.fire.haze ?? 1); }
   else { gl.uniform4f(U.uFire, 0, 0, 0, 0); gl.uniform4f(U.uFlame, 0, 0, 0, 0); }
   gl.uniform1f(U.uRecA, (SC.rec.rot || 0) * Math.PI / 180);
