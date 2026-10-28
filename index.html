@@ -481,10 +481,10 @@ const SCENES = {
     plant: [[290,315],[345,315],[352,398],[412,440],[412,520],[372,560],[392,665],[262,665],[275,560],[228,520],[228,440],[286,398]],
     lamp1: [320, 476, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
     variants: ['scene6m.webp', 'scene6d.webp', 'disc6m.webp', 'disc6d.webp', 'sheen6m.png', 'sheen6d.png', 'arm6d.png'],
-    noLeaves: true,
+    windLeaf: 'rgba(150,120,50,.85)',   // rüzgârda Boğaz'ın ağaçlarından savrulan sarımsı yapraklar
     fxNames: { prism: ['Gökkuşağı', 'Lamba ışığı'] },
     // mozaik lamba: titreyen renkli ışık
-    fire: { x: 320, y: 476, k: .75, rect: [238, 400, 165, 150], haze: 0, sparks: false, name: 'Lamba ışığı', offAtNoon: true, offAtMorning: true, paper: [240, 402, 160, 146] },   // sabah ve öğle görselinde lamba sönük
+    fire: { x: 320, y: 476, k: .75, rect: [238, 400, 165, 150], haze: 0, sparks: false, name: 'Lamba ışığı', offAtNoon: true, offAtMorning: true, round: true, paper: [236, 398, 170, 156] },   // sabah ve öğle görselinde lamba sönük
     sea: { horizon: 362, k: .6, px: 1200, pw: .7 },    // Boğaz: akıntılı su; ay/güneş yolu sağ camda, vapurun solunda
     bridge: [272, 800, 245, 302],                      // köprü ışıklarının bandı
     lights: [[1392, 376], [1210, 332], [1330, 318], [1460, 300], [1560, 312], [720, 318], [500, 348], [1270, 340], [1500, 330]],
@@ -610,9 +610,10 @@ uniform vec3 uL1, uL2, uCupS;
 uniform vec4 uFire, uFireR, uSea, uBeam;   // uSea: x güç, y ufuk  |  uBeam: xy deniz feneri, z güç
 uniform float uFireHaze, uRecA, uYak, uGlass, uRipple;   // uGlass: 0 = açık kapı (cam yok)  |  uRipple: havuzda yağmur halkaları
 uniform vec4 uPath;   // z: yolun merkezi x (0 = varsayılan), w: genişlik çarpanı
+uniform float uPaperRound;
 uniform vec4 uFlame, uPaper;   // yeniden yakılan fener: alev (xy fitil, z boy, w güç) ya da kâğıt/cam lamba alanı
 uniform vec4 uBridge;          // köprü ışıkları: x0, x1, y üst, y alt
-uniform float uBridgeK;        // köprü ışık gösterisinin gücü (gece)
+uniform float uBridgeK, uBridgeOn;        // köprü ışık gösterisinin gücü (gece)
 
 // ters kenarlarda da tanımlı smoothstep (mobil GPU'larda güvenli)
 vec4 sceneTex(vec2 uv){ return texture(uScene, uv) * uWv.x + texture(uSceneB, uv) * uWv.y; }
@@ -720,7 +721,7 @@ void main(){
     float cm = max(cl, cr) * clamp(p.y / 480., 0., 1.) * (1. - mp.b) * uCurtK;   // bitkinin üstünde perde dalgası yok
     q.x += (sin(p.y * .017 - uT * .75 + p.x * .02) * 6. + sin(p.y * .041 - uT * 1.25) * 2.) * uCurtain * cm;
     // soldaki bitki: saksıdan yukarı doğru artan hafif salınım
-    float pm = mp.b;
+    float pm = mp.b * (1. - step(.5, uBridgeOn));
     if (pm > .01) {
       float hf = mix(.3, 1., clamp((640. - p.y) / 360., 0., 1.));   // alttaki yapraklar da hafifçe kıpırdar
       float sw = sin(uT * .55 + p.y * .006) * 1.8 + sin(uT * .95 + p.x * .018 + 1.3) * .7;
@@ -843,7 +844,7 @@ void main(){
   if (uBridgeK > .001 && ext > .5 && p.x > uBridge.x && p.x < uBridge.y && p.y > uBridge.z && p.y < uBridge.w) {
     // köprü: lambalar yavaşça renk değiştirir, renk dalgası köprü boyunca akar; müzikle parlar
     float lumB = dot(base, vec3(.2126, .7152, .0722));
-    float lt = sst(.42, .7, lumB);
+    float lt = mp.b;                    // lamba noktaları haritadan (akşam görselinden çıkarıldı): saat geçişinde gökyüzü boyanmaz
     float hue = fract(p.x * .0016 - uT * .045);
     vec3 hc = clamp(abs(mod(hue * 6. + vec3(0., 4., 2.), 6.) - 3.) - 1., 0., 1.);
     vec3 lc = mix(vec3(1.), hc, .72) * (.9 + lumB * .6) * (1. + uBass * .6);
@@ -867,7 +868,7 @@ void main(){
   // buğu: sadece camda (kenarlardan içeri çekilmiş), bitkinin olduğu yerde yok
   if (uFogA > .005 && ext > .01 && uGlass > .5) {
     vec4 fg = texture(uFogTex, (p - uFogRect.xy) / uFogRect.zw);
-    float fm = sst(.55, .98, ext) * (1. - sst(.3, .85, mp.b));
+    float fm = sst(.55, .98, ext) * (1. - sst(.3, .85, mp.b) * (1. - uBridgeOn));
     e = mix(e, fg.rgb * mix(1., .55 + uLamp * .5, uNight), fg.a * uFogA * fm);
   }
   vec3 col = mix(lightInterior(base, sun, p), e, ext);
@@ -877,6 +878,8 @@ void main(){
     // andon: alev görünmez, kâğıt içten ısınır; kenarlara doğru sönen sıcak dolgu
     vec2 pr2 = (p - uPaper.xy) / uPaper.zw;
     float pm = sst(0., .12, pr2.x) * sst(1., .88, pr2.x) * sst(0., .1, pr2.y) * sst(1., .9, pr2.y);
+    if (uPaperRound > .5) pm = sst(1., .82, length((pr2 - .5) * 2.));   // yuvarlak mozaik lamba
+    pm *= 1. - ext;                                                       // arkadaki cam aydınlanmaz (kare leke olmaz)
     float core = exp(-length((pr2 - vec2(.5, .62)) * vec2(1.4, 1.)) * 2.2);
     float fl2 = 1. + uFire.w * 1.5;
     col = col * (1. + vec3(1.1, .62, .25) * pm * (.55 + core) * uFlame.w * fl2) + vec3(1., .66, .32) * pm * core * .35 * uFlame.w * fl2;
@@ -2040,7 +2043,7 @@ const orbs = Array.from({ length: 40 }, (_, i) => ({
 const dust = Array.from({ length: 90 }, () => ({ x: rnd(0, STAGE_W), y: rnd(0, STAGE_H), r: rnd(.7, 2.2), ph: rnd(0, 6.28), sp: rnd(.3, 1) }));
 const rain = Array.from({ length: 160 }, () => ({ x: rnd(100, 1260), y: rnd(-40, 440), l: rnd(14, 30), v: rnd(850, 1250) }));
 const snow = Array.from({ length: 260 }, () => ({ x: rnd(100, 1260), y: rnd(-20, 440), r: rnd(.8, 3.2), v: rnd(22, 60), ph: rnd(0, 6.28) }));
-const leaves = Array.from({ length: 14 }, () => ({ x: rnd(100, 1260), y: rnd(0, 420), r: rnd(3, 6), a: rnd(0, 6.28), v: rnd(.6, 1.4) }));
+const leaves = Array.from({ length: 14 }, () => ({ x: rnd(100, 1260), y: rnd(0, 420), r: rnd(10, 16), a: rnd(0, 6.28), v: rnd(.6, 1.4), t: rnd(.82, 1.12) }));
 const cityLights = Array.from({ length: 9 }, () => ({ x: rnd(170, 1200), y: rnd(150, 380), r: rnd(1.5, 3.5), ph: rnd(0, 6.28) }));
 
 let T = 0;
@@ -2114,8 +2117,13 @@ function drawFX(dt) {
       for (const L of leaves) {
         L.x -= (90 + 160 * wind) * L.v * dt; L.y += Math.sin(T * 2 + L.a) * 30 * dt + 12 * dt; L.a += dt * 3 * L.v;
         if (L.x < G[0] - 20 || L.y > G[1] + G[3]) { L.x = G[0] + G[2] + rnd(10, 120); L.y = rnd(G[1], G[1] + G[3] - 40); }
-        fx.save(); fx.translate(L.x, L.y); fx.rotate(L.a); fx.globalAlpha = wind;
-        fx.beginPath(); fx.ellipse(0, 0, L.r, L.r * .45, 0, 0, Math.PI * 2); fx.fill(); fx.restore();
+        // yaprak şekli: sivri uçlu, orta damarlı; dönerken incelir (3B takla)
+        const fl = .45 + .55 * Math.abs(Math.cos(T * 2.4 * L.v + L.a)), r = L.r;
+        fx.save(); fx.translate(L.x, L.y); fx.rotate(L.a); fx.scale(1, fl); fx.globalAlpha = wind * L.t;
+        fx.beginPath(); fx.moveTo(-r, 0); fx.quadraticCurveTo(-r * .1, -r * .85, r, 0); fx.quadraticCurveTo(-r * .1, r * .85, -r, 0); fx.fill();
+        fx.globalAlpha = wind * .5; fx.lineWidth = .8; fx.strokeStyle = 'rgba(40,25,10,.8)';
+        fx.beginPath(); fx.moveTo(-r * 1.25, 0); fx.lineTo(r * .85, 0); fx.stroke();
+        fx.restore();
       }
       fx.globalAlpha = 1;
     }
@@ -2288,6 +2296,7 @@ function stepBubbles(dt, e, wind) {
 const glintArr = Array.from({ length: 30 }, () => ({ a: rnd(0, 6.28), r: rnd(.42, .97), ph: rnd(0, 6.28), s: rnd(.6, 1.3) }));
 const puffs = Array.from({ length: 12 }, (_, i) => ({ x: rnd(-100, 1700), y: rnd(470, 800), w: rnd(280, 560), h: rnd(70, 150), v: rnd(8, 22) * (i % 2 ? 1 : -1), b: i % BANDS, ph: rnd(0, 6.28) }));
 const lanterns = [];
+const auraWaves = [], auraDust = [], auraSt = { prev: 0, rising: false, cool: 0, grow: 1 };
 // camdaki (ya da açık kapıda süzülen) damlaların yakaladığı ışık: yuvarlak bokeh noktaları
 function drawGlassLights(dt) {
   const G = SC.fogRect;
@@ -2555,14 +2564,54 @@ const VIZ_DRAW = {
       fx.restore();
     }
   },
-  // Aura: plağın etrafında basla nefes alan ışık
+  // Aura: plağın etrafında basla nefes alan ışık; en büyük anında kopup dalga ve toz halinde dağılır
   aura(dt, c, night) {
     const col = night > .5 ? ORB_NIGHT[0] : ORB_DAY[3];
-    const s = 1.25 + levels.bass * .35, w = REC.rx * 2 * s, h = REC.ry * 2 * s * 1.3;
-    fx.globalAlpha = .06 + levels.bass * .5;
+    const rgb = night > .5 ? '255,190,120' : '255,236,200';
+    const bass = levels.bass;
+    // tepe anı: bas yükselip düşmeye başladığında (ya da vuruşta) aura kopar
+    auraSt.cool -= dt;
+    if (auraSt.cool <= 0 && auraSt.prev > .38 && bass < auraSt.prev - .02 && auraSt.rising) {
+      auraSt.cool = .45;
+      auraWaves.push({ t: 0, s0: (1.5 + auraSt.prev * .55) * 1.02, k: auraSt.prev }); auraSt.grow = 0;   // kopan halka en büyük boydan başlar, yenisi küçükten büyür
+      const n = 26 + (auraSt.prev * 30 | 0);
+      for (let i = 0; i < n && auraDust.length < 160; i++) {
+        const a = Math.random() * TAU2, r0 = .85 + Math.random() * .25;
+        auraDust.push({ a, r: r0, v: .5 + Math.random() * .9, t: 0, l: .7 + Math.random() * .8, z: .6 + Math.random() * 1.2 });
+      }
+    }
+    auraSt.rising = bass > auraSt.prev + .005 ? true : bass < auraSt.prev - .02 ? false : auraSt.rising;
+    auraSt.prev = bass;
+    // nefes alan çekirdek: büyür, kopma anında yeniden küçükten başlar
+    auraSt.grow = Math.min(1, auraSt.grow + dt * 2.2);
+    const g = .55 + .45 * auraSt.grow;
+    const s = (1.5 + bass * .55) * g, w = REC.rx * 2 * s, h = REC.ry * 2 * s * 1.3;
+    fx.globalAlpha = clamp((.12 + bass * .65) * (.4 + .6 * auraSt.grow), 0, .85);
     fx.drawImage(GLOW, REC.cx - w / 2, REC.cy - h / 2, w, h);
-    fx.globalAlpha = .04 + levels.high * .4;
+    fx.globalAlpha = clamp(.08 + levels.high * .55, 0, .6);
     fx.drawImage(col, REC.cx - w * .42, REC.cy - h * .42, w * .84, h * .84);
+    // kopan dalgalar: hızla genişleyip incelerek söner
+    for (let i = auraWaves.length - 1; i >= 0; i--) {
+      const W = auraWaves[i]; W.t += dt; const k = W.t / .9;
+      if (k >= 1) { auraWaves.splice(i, 1); continue; }
+      const e = 1 - Math.pow(1 - k, 3), sc = W.s0 * .62 + e * .75;   // aura kenarından başlar, hızla dışa açılır
+      const rx = REC.rx * sc, ry = REC.ry * sc * 1.3, fade = Math.pow(1 - k, 1.6);
+      for (const [lw, al] of [[26 * (1 - k) + 6, .07], [12 * (1 - k) + 3, .13], [3 * (1 - k) + 1, .3]]) {   // yumuşak, katmanlı dalga
+        fx.globalAlpha = clamp(al * fade * (.6 + W.k), 0, 1);
+        fx.strokeStyle = `rgb(${rgb})`; fx.lineWidth = lw;
+        fx.beginPath(); fx.ellipse(REC.cx, REC.cy, rx, ry, 0, 0, TAU2); fx.stroke();
+      }
+    }
+    // toz: dalgayla birlikte dışarı savrulan ince zerreler
+    fx.fillStyle = `rgb(${rgb})`;
+    for (let i = auraDust.length - 1; i >= 0; i--) {
+      const d = auraDust[i]; d.t += dt; const k = d.t / d.l;
+      if (k >= 1) { auraDust.splice(i, 1); continue; }
+      d.r += d.v * dt * (1 - k * .6);
+      const x = REC.cx + Math.cos(d.a) * REC.rx * d.r, y = REC.cy + Math.sin(d.a) * REC.ry * 1.6 * d.r - k * 22;
+      fx.globalAlpha = clamp((1 - k) * .8, 0, 1);
+      fx.beginPath(); fx.arc(x, y, d.z * (1 - k * .5), 0, TAU2); fx.fill();
+    }
   },
   // Notalar: vuruşlarda ve enerjide plaktan yükselen nota işaretleri
   notes(dt, c, night) {
@@ -2951,6 +3000,7 @@ function setSceneUniforms() {
     const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - vD * (1 - lanternLit) : 1);
     gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.y + 30, 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
     if (SC.fire.paper) gl.uniform4fv(U.uPaper, SC.fire.paper); else gl.uniform4f(U.uPaper, 0, 0, 0, 0);
+    gl.uniform1f(U.uPaperRound, SC.fire.round ? 1 : 0);
     gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, fk, fireF * (fk > 0 ? 1 : 0)); gl.uniform4fv(U.uFireR, SC.fire.rect); gl.uniform1f(U.uFireHaze, SC.fire.haze ?? 1); }
   else { gl.uniform4f(U.uFire, 0, 0, 0, 0); gl.uniform4f(U.uFlame, 0, 0, 0, 0); }
   gl.uniform1f(U.uRecA, (SC.rec.rot || 0) * Math.PI / 180);
@@ -3110,6 +3160,7 @@ function drawGL(jitter) {
     pathS += (pathT - pathS) * .12; pathN += ((nightNow(c) ? 1 : 0) - pathN) * .05;
     gl.uniform4f(U.uPath, pathS, pondMoon ? 1 : pathN, pondMoon ? 905 : (SC.sea && SC.sea.px) || 0, pondMoon ? .5 : (SC.sea && SC.sea.pw) || 1);
     // köprü ışıkları: akşam görselinde ve gece
+    gl.uniform1f(U.uBridgeOn, SC.bridge ? 1 : 0);
     if (SC.bridge) { const cb = atmo.cur || {}; gl.uniform4fv(U.uBridge, SC.bridge); gl.uniform1f(U.uBridgeK, clamp((SC.variants ? (cb.vEve ?? 1) : 1) * (.75 + (cb.night || 0) * .25) * (1 - (cb.fog || 0) * .6), 0, 1)); }
     else gl.uniform1f(U.uBridgeK, 0); }
   gl.uniform1f(U.uCoffee, (atmo.cur && atmo.cur.coffee) || 0);
