@@ -1042,9 +1042,16 @@ function updateTex(name, src) {
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
   if (o.mip) gl.generateMipmap(gl.TEXTURE_2D);
 }
+// görsel yükleme: eksik dosya ya da takılan bağlantı açıkça hata verir (sessizce beklemez)
 async function loadImg(src) {
-  const r = await fetch(src); const b = await r.blob();
-  return createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 20000);
+  try {
+    const r = await fetch(src, { signal: ctl.signal });
+    if (!r.ok) throw new Error(src + ' (' + r.status + ')');
+    const b = await r.blob();
+    return await createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+  } catch (e) { throw new Error(src + (e.name === 'AbortError' ? ' (zaman aşımı)' : e.message.startsWith(src) ? e.message.slice(src.length) : '')); }
+  finally { clearTimeout(to); }
 }
 
 /* ===========================================================
@@ -2974,7 +2981,14 @@ async function loadSceneImgs(id) {
   if (!sceneImgs[id] || sceneImgs[id][0].width === 0) {   // kapatılmış (close) görseller yeniden yüklenir
     const sc = SCENES[id];
     const main = await Promise.all(sc.files.map(loadImg));
-    const v = sc.variants ? await Promise.all(sc.variants.map(loadImg)) : [main[0], main[0], main[2], main[2], main[3], main[3], main[4]];
+    // zaman görselleri eksikse sahne yine açılır: o saatlerde akşam görseli kullanılır
+    let v = [main[0], main[0], main[2], main[2], main[3], main[3], main[4]];
+    if (sc.variants) {
+      const got = await Promise.allSettled(sc.variants.map(loadImg));
+      const bad = got.filter(g => g.status === 'rejected').map(g => g.reason.message);
+      if (bad.length) toast('Eksik dosya: ' + bad[0], 6000);
+      v = got.map((g, i) => g.status === 'fulfilled' ? g.value : v[i]);
+    }
     sceneImgs[id] = main.concat(v);
   }
   return sceneImgs[id];
@@ -3001,7 +3015,7 @@ async function setScene(id, instant) {
     applySceneConfig(id);
     if (!instant && glReady) await tweenReal(1.2, k => { sceneFade = 1 - k; fxCanvas.style.opacity = k; });
     sceneFade = 0; fxCanvas.style.opacity = 1;
-  } catch (e) { console.warn('sahne', e); }
+  } catch (e) { console.warn('sahne', e); toast('Sahne açılamadı: ' + (e.message || e), 6000); sceneMode = 'window'; updateAtmoUI(); }
   sceneBusy = false;
   // geçiş sürerken istek değiştiyse onu uygula
   const want = wantedScene(); if (want !== sceneId) setScene(want);
@@ -3688,9 +3702,9 @@ function setPlayIcon(on) {
   $('play').setAttribute('aria-label', on ? 'Duraklat' : 'Çal');
 }
 let toastTimer;
-function toast(msg) {
+function toast(msg, ms) {
   const t = $('toast'); t.textContent = msg; t.classList.add('on');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1600);
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms || 1600);
 }
 function openSheet(id) { $(id).classList.add('on'); $('scrim').classList.add('on'); }
 function closeSheets() { document.querySelectorAll('.sheet.on').forEach(s => s.classList.remove('on')); $('scrim').classList.remove('on'); }
