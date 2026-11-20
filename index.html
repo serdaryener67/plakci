@@ -596,7 +596,7 @@ const SCENES = {
     // masadaki mumlu fener: titreyen alev; sabah ve öğle görselinde mum sönük
     fire: { x: 581, y: 660, k: .7, rect: [548, 630, 68, 110], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true, offAtMorning: true, flameY: 690, flameH: 16 },
     lights: [[522, 395], [593, 400], [670, 405], [1162, 395], [1210, 385], [1257, 370], [880, 433], [935, 433]],
-    fogRect: [333, 0, 1113, 680], cup: [1124, 805, 100], cone: [1098, 736, 34, 36],
+    fogRect: [333, 0, 1113, 680], cup: [1124, 805, 100], cone: [1092, 708, 44, 60],
     focus: [800, 640], cine: [0, 0, 1600, 948], waveY: 860,
     spots: [[756, 655, 1005, 720, .45], [333, 600, 1014, 640, .4], [450, 740, 1170, 830, .9], [0, 600, 330, 948, .4], [1200, 700, 1659, 948, .4]],
     secret: []
@@ -4475,6 +4475,10 @@ document.addEventListener('visibilitychange', () => {
     makeTex(5, 'uLabel', labelCanvas, true);
     makeTex(6, 'uCup', makeCup(), true);
     makeTex(7, 'uCone', makeCone(), true);
+    // fotoğraftan kesilmiş fincan ve kozalak: yüklenince çizilmiş dokunun yerini alır (yüklenmezse çizim kalır)
+    for (const [u, n, f] of [[6, 'uCup', 'cup.webp'], [7, 'uCone', 'cone.webp']]) {
+      loadImg(f).then((b) => { makeTex(u, n, b, true); b.close(); gl.activeTexture(gl.TEXTURE0); }).catch(() => {});
+    }
     makeTex(8, 'uFogTex', fogOutCv, false);
     bindSceneTex(startImgs);
     glReady = true;

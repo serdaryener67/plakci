@@ -1,6 +1,6 @@
 // Plakçı service worker
 // ÖNEMLİ: her güncellemede CACHE_NAME'deki sürüm numarasını artır (v1 -> v2 ...)
-const CACHE_NAME = 'plakci-v67';
+const CACHE_NAME = 'plakci-v68';
 
 // ilk kurulumda sadece uygulama ve ilk sahne indirilir; diğer sahneler ilk açıldıklarında önbelleğe girer
 const SHELL = [
@@ -14,7 +14,9 @@ const SHELL = [
   './arm.png',
   './icon-192.png',
   './icon-512.png',
-  './icon-maskable-512.png'
+  './icon-maskable-512.png',
+  './cup.webp',
+  './cone.webp'
 ];
 
 self.addEventListener('install', (e) => {
