@@ -377,7 +377,7 @@ const STAGE_W = 1659, STAGE_H = 948;
 const SCENES = {
   window: {
     city: true,
-    name: 'Pencere kenarı', files: ['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'],
+    lampHit: [1420, 740, 1659, 948], name: 'Pencere kenarı', files: ['scene.webp', 'maps.png', 'disc.webp', 'sheen.png', 'arm.png'],
     rec: { cx: 798, cy: 535, rx: 276, ry: 76, labelR: 103 },
     arm: { pivotX: 1121, pivotY: 528, ke: 0.6, startDeg: 53, endDeg: 72, x: 1076, y: 446, w: 102, h: 213 },
     sheen: [520, 457, 556, 156], spindle: [798, 516],
@@ -392,7 +392,7 @@ const SCENES = {
   },
   attic: {
     city: true,
-    name: 'Çatı katı', files: ['scene2.webp', 'maps2.png', 'disc2.webp', 'sheen2.png', 'arm2.png'],
+    lampHit: [0, 120, 150, 560], name: 'Çatı katı', files: ['scene2.webp', 'maps2.png', 'disc2.webp', 'sheen2.png', 'arm2.png'],
     rec: { cx: 745, cy: 581, rx: 211, ry: 65, labelR: 63 },
     arm: { pivotX: 1007, pivotY: 528, ke: 0.4, startDeg: 30, endDeg: 56, x: 994, y: 520, w: 60, h: 116 },
     sheen: [532, 514, 426, 134], spindle: [745, 562],
@@ -408,7 +408,7 @@ const SCENES = {
     secret: []
   },
   cabin: {
-    name: 'Kış kulübesi', files: ['scene3.webp', 'maps3.png', 'disc3.webp', 'sheen3.png', 'arm3.png'],
+    lampHit: [0, 420, 125, 640], name: 'Kış kulübesi', files: ['scene3.webp', 'maps3.png', 'disc3.webp', 'sheen3.png', 'arm3.png'],
     rec: { cx: 672.7, cy: 556, rx: 171.7, ry: 31, labelR: 58 },
     arm: { pivotX: 816, pivotY: 508, ke: 0.4, startDeg: 46.5, endDeg: 71.5, x: 776, y: 484, w: 188, h: 86 },
     sheen: [499, 523, 348, 67], spindle: [672.5, 540],
@@ -429,7 +429,7 @@ const SCENES = {
     secret: []
   },
   sea: {
-    name: 'Deniz kenarı', files: ['scene4.webp', 'maps4.png', 'disc4.webp', 'sheen4.png', 'arm4.png'],
+    lampHit: [130, 440, 215, 570], name: 'Deniz kenarı', files: ['scene4.webp', 'maps4.png', 'disc4.webp', 'sheen4.png', 'arm4.png'],
     rec: { cx: 571, cy: 521, rx: 226, ry: 40.25, labelR: 72, rot: -2.03 },   // plak hafif eğik duruyor
     arm: { pivotX: 840, pivotY: 478, ke: 0.27, startDeg: 38, endDeg: 68, x: 796, y: 442, w: 154, h: 100 },
     sheen: [342, 469, 459, 103], spindle: [572.5, 504],
@@ -453,7 +453,7 @@ const SCENES = {
     secret: []
   },
   japan: {
-    name: 'Japon çay evi', files: ['scene5.webp', 'maps5.png', 'disc5.webp', 'sheen5.png', 'arm5.png'],
+    lampHit: [35, 325, 205, 565], name: 'Japon çay evi', files: ['scene5.webp', 'maps5.png', 'disc5.webp', 'sheen5.png', 'arm5.png'],
     rec: { cx: 609.5, cy: 524, rx: 148.5, ry: 28, labelR: 49, rot: -1.5 },
     arm: { pivotX: 803, pivotY: 515, ke: 0.25, startDeg: 13, endDeg: 40.5, x: 710, y: 508, w: 102, h: 48 },
     sheen: [458, 489, 304, 70], spindle: [610.5, 508],
@@ -476,7 +476,7 @@ const SCENES = {
   },
   bosphorus: {
     city: true,
-    name: 'Boğaz', files: ['scene6.webp', 'maps6.png', 'disc6.webp', 'sheen6.png', 'arm6.png'],
+    lampHit: [228, 395, 412, 560], name: 'Boğaz', files: ['scene6.webp', 'maps6.png', 'disc6.webp', 'sheen6.png', 'arm6.png'],
     rec: { cx: 658, cy: 615.5, rx: 170.5, ry: 30.5, labelR: 57 },
     arm: { pivotX: 866, pivotY: 596, ke: 0.25, startDeg: 22, endDeg: 46.5, x: 822, y: 586, w: 74, h: 60 },
     sheen: [484, 582, 348, 68], spindle: [659, 600],
@@ -499,7 +499,7 @@ const SCENES = {
     },
   bookshop: {
     city: true,
-    name: 'Kitapçı', files: ['scene7.webp', 'maps7.png', 'disc7.webp', 'sheen7.png', 'arm7.png'],
+    lampHit: [100, 260, 430, 420], name: 'Kitapçı', files: ['scene7.webp', 'maps7.png', 'disc7.webp', 'sheen7.png', 'arm7.png'],
     rec: { cx: 807.5, cy: 672, rx: 204.5, ry: 40.5, labelR: 70 },
     arm: { pivotX: 1039, pivotY: 622, ke: 0.33, startDeg: 13.5, endDeg: 42.5, x: 1022, y: 620, w: 74, h: 82 },
     sheen: [600, 628, 416, 88], spindle: [807.5, 658],
@@ -519,6 +519,29 @@ const SCENES = {
     fogRect: [488, 30, 784, 560], cup: [1390, 790, 190], cone: [1505, 650, 104, 107],
     focus: [810, 660], cine: [0, 0, 1620, 900], waveY: 830,
     spots: [[600, 630, 1020, 720, .45], [488, 560, 1272, 600, .4], [300, 720, 1500, 900, .9], [0, 600, 450, 948, .4], [1300, 650, 1659, 948, .4]],
+    secret: []
+    },
+  patisserie: {
+    city: true,
+    name: 'Pastane', files: ['scene8.webp', 'maps8.png', 'disc8.webp', 'sheen8.png', 'arm8.png'],
+    rec: { cx: 880.8, cy: 687, rx: 124.2, ry: 26.3, labelR: 43.3 },
+    arm: { pivotX: 1015, pivotY: 654, ke: 0.33, startDeg: 28, endDeg: 47, x: 1008, y: 650, w: 40, h: 70 },
+    sheen: [753, 657, 255, 59], spindle: [881.5, 678],
+    panes: [[[333,22],[548,22],[548,345],[333,345]],[[562,22],[782,22],[782,345],[562,345]],[[797,22],[1014,22],[1014,345],[797,345]],[[333,360],[548,360],[548,630],[333,630]],[[562,360],[782,360],[782,630],[562,630]],[[797,360],[1014,360],[1014,630],[797,630]],[[1122,0],[1446,0],[1446,72],[1122,72]],[[1148,158],[1273,158],[1273,320],[1148,320]],[[1293,158],[1418,158],[1418,320],[1293,320]],[[1148,338],[1273,338],[1273,500],[1148,500]],[[1293,338],[1418,338],[1418,500],[1293,500]],[[1148,518],[1273,518],[1273,680],[1148,680]],[[1293,518],[1418,518],[1418,680],[1293,680]]],
+    plant: [[300,160],[382,160],[382,470],[300,470]],
+    // camın önündeki sarmaşık, pervazdaki saksılar, fener ve vazo: damla ve buğu üstlerine binmez
+    holes: [[[300,160],[382,160],[382,470],[300,470]],[[300,535],[510,535],[510,700],[300,700]],[[555,570],[745,585],[745,700],[555,700]]],
+    lamp1: [581, 680, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    // gündüz görseli hem sabah hem öğle için kullanılır
+    variants: ['scene8m.webp', 'scene8d.webp', 'disc8m.webp', 'disc8d.webp', 'sheen8m.png', 'sheen8d.png', 'arm8d.png'],
+    windLeaf: 'rgba(240,170,195,.9)',   // rüzgârda kiraz ağacından savrulan pembe yapraklar
+    fxNames: { prism: ['Gökkuşağı', 'Fener ışığı'] },
+    // masadaki mumlu fener: titreyen alev; sabah ve öğle görselinde mum sönük
+    fire: { x: 581, y: 660, k: .7, rect: [548, 630, 68, 110], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true, offAtMorning: true, flameY: 690, flameH: 16 },
+    lights: [[522, 395], [593, 400], [670, 405], [1162, 395], [1210, 385], [1257, 370], [880, 433], [935, 433]],
+    fogRect: [333, 0, 1113, 680], cup: [1122, 805, 105], cone: [1150, 742, 40, 42],
+    focus: [800, 640], cine: [0, 0, 1600, 948], waveY: 860,
+    spots: [[756, 655, 1005, 720, .45], [333, 600, 1014, 640, .4], [450, 740, 1170, 830, .9], [0, 600, 330, 948, .4], [1200, 700, 1659, 948, .4]],
     secret: []
   }
 };
@@ -1972,10 +1995,20 @@ function updateAtmoUI() {
   mk($('timeOpts'), Object.entries(TIMES), atmo.timeMode, (k) => { atmo.timeMode = k; store.set('timeMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
   mk($('wxOpts'), [['auto', 'Oto'], ['live', 'Canlı'], ...Object.keys(WX).map(k => [k, wxLabel(k)])], atmo.wxMode,
     (k) => { atmo.wxMode = k; store.set('wxMode', k); computeTarget(); if (k === 'live') fetchWeather(); });
-  mk($('sceneOpts'), [['auto', 'Oto (kar: kulübe, fırtına/sis: deniz, akşam: çatı katı, gündüz: pencere)'], ...Object.entries(SCENES).map(([k, v]) => [k, v.name])], sceneMode,
+  // gizli pastane: bulunana kadar menüde görünmez
+  const sceneList = Object.entries(SCENES).filter(([k]) => k !== 'patisserie' || store.get('pastryFound', false));
+  mk($('sceneOpts'), [['auto', 'Oto (kar: kulübe, fırtına/sis: deniz, akşam: çatı katı, gündüz: pencere)'], ...sceneList.map(([k, v]) => [k, v.name === 'Pastane' ? '🍰 Pastane' : v.name])], sceneMode,
     (k) => { sceneMode = k; store.set('scene', k); computeTarget(); setScene(wantedScene()); });
   $('secretRow').style.display = atmo.coffeeFound ? '' : 'none';
   mk($('secretOpts'), [['coffee', '☕ Kahve molası']], atmo.coffee ? 'coffee' : '', () => toggleCoffee());
+}
+// gizli sahne: herhangi bir sahnede lamba, mum ya da fenere 3 kez dokununca pastane açılır
+function unlockPastry() {
+  const first = !store.get('pastryFound', false);
+  store.set('pastryFound', true);
+  toast(first ? '🍰 Gizli sahne bulundu: Pastane' : '🍰 Pastane', first ? 4000 : 2000);
+  sceneMode = 'patisserie'; store.set('scene', 'patisserie');
+  computeTarget(); setScene('patisserie'); updateAtmoUI();
 }
 function toggleCoffee() {
   atmo.coffee = !atmo.coffee; store.set('coffee', atmo.coffee);
@@ -3036,7 +3069,7 @@ function setSceneUniforms() {
     const litT = SC.fire.offAtNoon ? ((vizRun === 'prism' && sunGone(cf)) ? 1 : clamp(((cf.ov || 0) - .4) * 3, 0, 1)) : 0;   // kapalı havada ya da efektte yanar; açık sabahta sönük
     lanternLit += (litT - lanternLit) * .05;
     const fk = (SC.fire.k ?? 1) * (SC.fire.offAtNoon ? 1 - vD * (1 - lanternLit) : 1);
-    gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.y + 30, 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
+    gl.uniform4f(U.uFlame, SC.fire.x, SC.fire.flameY ?? SC.fire.y + 30, SC.fire.flameH ?? 52, SC.fire.offAtNoon ? vD * lanternLit : 0);
     if (SC.fire.paper) gl.uniform4fv(U.uPaper, SC.fire.paper); else gl.uniform4f(U.uPaper, 0, 0, 0, 0);
     gl.uniform1f(U.uPaperRound, SC.fire.round ? 1 : 0);
     gl.uniform4f(U.uFire, SC.fire.x, SC.fire.y, fk, fireF * (fk > 0 ? 1 : 0)); gl.uniform4fv(U.uFireR, SC.fire.rect); gl.uniform1f(U.uFireHaze, SC.fire.haze ?? 1); }
@@ -3067,7 +3100,7 @@ let sceneId = 'window', sceneFade = 0, sceneBusy = false, sceneMode = store.get(
 // ana ekran kısayolu: ?scene=sea gibi gelen seçim kaydedilir, adres çubuğu temizlenir
 try {
   const qScene = new URLSearchParams(location.search).get('scene');
-  if (qScene && (qScene === 'auto' || SCENES[qScene])) { sceneMode = qScene; store.set('scene', qScene); }
+  if (qScene && (qScene === 'auto' || SCENES[qScene]) && (qScene !== 'patisserie' || store.get('pastryFound', false))) { sceneMode = qScene; store.set('scene', qScene); }
   if (qScene) history.replaceState(null, '', location.pathname);
 } catch (e) {}
 const sceneImgs = {};
@@ -3913,7 +3946,7 @@ $('orderBtn').onclick = () => {
   g.addEventListener('pointerup', (e) => { if (rect) seekTo(at(e.clientX)); rect = null; });
 })();
 
-let secretTaps = 0, secretLast = 0;
+let secretTaps = 0, secretLast = 0, lampTaps = 0, lampLast = 0;
 // dikey ekranda kamera: sahne ekrandan geniş. Parmakla sağa sola kaydırılır;
 // dokunulmayınca yavaşça saksıdan masaya ve geri süzülür (sinematik pan)
 const cam = { x: SC.focus[0], target: SC.focus[0], holdUntil: 0, t: 0, dragging: false,
@@ -4003,6 +4036,13 @@ function stepCam(dt) {
         const now = performance.now();
         secretTaps = (now - secretLast < 650) ? secretTaps + 1 : 1; secretLast = now;
         if (secretTaps >= 3) { secretTaps = 0; toggleCoffee(); }
+        return;
+      }
+      const lh = SC.lampHit;
+      if (lh && x > lh[0] && x < lh[2] && y > lh[1] && y < lh[3]) {
+        const now = performance.now();
+        lampTaps = (now - lampLast < 650) ? lampTaps + 1 : 1; lampLast = now;
+        if (lampTaps >= 3) { lampTaps = 0; unlockPastry(); }
         return;
       }
       if (r < 1.05) { fireTap('record', null, e.clientX, e.clientY); if (!tracks.length) pickFolder(); else togglePlay(); }
