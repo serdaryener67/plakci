@@ -113,6 +113,10 @@
     transform:translateY(105%);transition:transform .38s cubic-bezier(.2,.8,.2,1);
     padding:10px 0 env(safe-area-inset-bottom)}
   .sheet.on{transform:none}
+  /* içerik ekrana sığmazsa sayfa kendi içinde kayar (yatay telefonda atmosfer menüsü) */
+  .sheet{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+  .sheet > *{flex-shrink:0}
+  .sheet > #list{flex-shrink:1;min-height:0}
   .sheet .grab{width:38px;height:4px;border-radius:2px;background:var(--faint);margin:2px auto 12px}
   .sheet h3{font-family:var(--serif);font-weight:400;font-size:19px;margin:0 22px 4px}
   .sheet .sub{color:var(--muted);font-size:11px;letter-spacing:1.5px;margin:0 22px 12px}
@@ -1741,6 +1745,16 @@ if ('mediaSession' in navigator) {
   ms.setActionHandler('previoustrack', () => go(-1));
   ms.setActionHandler('nexttrack', () => go(1));
   try { ms.setActionHandler('seekto', (d) => seekTo(d.seekTime)); } catch (e) {}
+  // bildirim kartındaki ilerleme çubuğu: yalnızca olaylarda güncellenir (her karede değil, performans için)
+  const syncPos = () => {
+    const d = audio.duration;
+    if (!ms.setPositionState || !isFinite(d) || d <= 0) return;
+    try { ms.setPositionState({ duration: d, playbackRate: 1, position: Math.min(Math.max(audio.currentTime || 0, 0), d) }); } catch (e) {}
+  };
+  audio.addEventListener('play', () => { ms.playbackState = 'playing'; syncPos(); });
+  audio.addEventListener('pause', () => { ms.playbackState = 'paused'; syncPos(); });
+  audio.addEventListener('loadedmetadata', syncPos);
+  audio.addEventListener('seeked', syncPos);
 }
 
 /* ===========================================================
@@ -3026,6 +3040,12 @@ function setSceneUniforms() {
 }
 /* ---------- sahne değişimi: oda kararır, yeni oda ışıkla açılır; plak ve müzik kesilmez ---------- */
 let sceneId = 'window', sceneFade = 0, sceneBusy = false, sceneMode = store.get('scene', 'auto');
+// ana ekran kısayolu: ?scene=sea gibi gelen seçim kaydedilir, adres çubuğu temizlenir
+try {
+  const qScene = new URLSearchParams(location.search).get('scene');
+  if (qScene && (qScene === 'auto' || SCENES[qScene])) { sceneMode = qScene; store.set('scene', qScene); }
+  if (qScene) history.replaceState(null, '', location.pathname);
+} catch (e) {}
 const sceneImgs = {};
 async function loadSceneImgs(id) {
   if (!sceneImgs[id] || sceneImgs[id][0].width === 0) {   // kapatılmış (close) görseller yeniden yüklenir
@@ -3766,7 +3786,9 @@ document.querySelectorAll('.sheet').forEach(sh => {
   let y0 = null;
   sh.addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
   sh.addEventListener('touchend', (e) => {
-    if (y0 != null && e.changedTouches[0].clientY - y0 > 90 && !$('list').contains(e.target)) closeSheets();
+    // dikey: sayfanın en üstündeyken aşağı kaydırınca kapanır; yatay: sayfa kaydırılır, kapatmak için dışarı dokunulur
+    if (y0 != null && !view.portrait) { y0 = null; return; }
+    if (y0 != null && sh.scrollTop <= 0 && e.changedTouches[0].clientY - y0 > 90 && !$('list').contains(e.target)) closeSheets();
     y0 = null;
   }, { passive: true });
 });
