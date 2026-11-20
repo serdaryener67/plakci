@@ -535,11 +535,14 @@ const SCENES = {
     // gündüz görseli hem sabah hem öğle için kullanılır
     variants: ['scene8m.webp', 'scene8d.webp', 'disc8m.webp', 'disc8d.webp', 'sheen8m.png', 'sheen8d.png', 'arm8d.png'],
     windLeaf: 'rgba(240,170,195,.9)',   // rüzgârda kiraz ağacından savrulan pembe yapraklar
+    // pastaneye özel: fincandan buhar, kiraz ağacı (yaprakların döküldüğü taç) ve sokaktaki ip ışıkların ampulleri
+    pastry: { steam: [535, 749, 27], tree: [700, 250, 900, 430], street: [500, 630],
+      bulbs: [[672,188],[686,192],[715,204],[748,216],[772,222],[824,232],[894,246],[940,252],[978,253],[995,251],[835,280],[861,286],[905,290],[945,288],[978,283],[1009,278],[871,300],[898,306],[937,299],[970,297],[988,292],[898,316],[918,322],[940,322],[961,322],[984,316],[1009,312]] },
     fxNames: { prism: ['Gökkuşağı', 'Fener ışığı'] },
     // masadaki mumlu fener: titreyen alev; sabah ve öğle görselinde mum sönük
     fire: { x: 581, y: 660, k: .7, rect: [548, 630, 68, 110], haze: 0, sparks: false, name: 'Fener ışığı', offAtNoon: true, offAtMorning: true, flameY: 690, flameH: 16 },
     lights: [[522, 395], [593, 400], [670, 405], [1162, 395], [1210, 385], [1257, 370], [880, 433], [935, 433]],
-    fogRect: [333, 0, 1113, 680], cup: [1122, 805, 105], cone: [1150, 742, 40, 42],
+    fogRect: [333, 0, 1113, 680], cup: [1124, 805, 100], cone: [1098, 736, 34, 36],
     focus: [800, 640], cine: [0, 0, 1600, 948], waveY: 860,
     spots: [[756, 655, 1005, 720, .45], [333, 600, 1014, 640, .4], [450, 740, 1170, 830, .9], [0, 600, 330, 948, .4], [1200, 700, 1659, 948, .4]],
     secret: []
@@ -2201,6 +2204,7 @@ function drawFX(dt) {
     fx.restore();
   }
 
+  if (SC.pastry) drawSteam(dt, c);
   // ---- şömine: ara ara yükselip sönen kıvılcımlar
   if (SC.fire && SC.fire.sparks !== false) {
     const [fx0, fy0, fw0, fh0] = SC.fire.rect;
@@ -2395,6 +2399,79 @@ const GLARE = (() => {
 const CANDLE_X = 300, CANDLE_Y = 980;
 let candleF = .7, candleN = 0, fireF = 0, yakS = 0, pathS = 0, pathN = 1, lanternLit = 0;
 const fireSparks = [];
+// ---- pastane: fincandan yükselen ince buhar (her zaman, efektten bağımsız)
+const STEAM = makeOrb([255, 255, 255], false);
+function drawSteam(dt, c) {
+  const [sx, sy, sw] = SC.pastry.steam;
+  const n = nightNow(c);
+  fx.globalCompositeOperation = n ? 'lighter' : 'source-over';   // gece fenerin ışığını alır
+  for (let k = 0; k < 3; k++) {
+    const ph = k * 2.1, x0 = sx - 6 + (k - 1) * sw * .3;   // arkadaki fenerin parlak camına binmesin diye sola süzülür
+    for (let j = 0; j < 22; j++) {
+      const h = j * 3.8, u = h / 83;
+      const x = x0 + Math.sin(h * .07 - T * 1.3 + ph) * (2 + h * .16) - h * .3 + Math.sin(T * .37 + ph) * 3;
+      const a = Math.sin(Math.PI * Math.min(1, u * 1.4)) * (1 - u * .75) * (.7 + .3 * Math.sin(T * .8 + ph));
+      if (a <= .01) continue;
+      const r = 4 + u * 12;
+      fx.globalAlpha = clamp(a * (n ? .46 : .55), 0, .6);
+      fx.drawImage(STEAM, x - r, sy - h - r, r * 2, r * 2);
+    }
+  }
+  fx.globalAlpha = 1; fx.globalCompositeOperation = 'source-over';
+}
+// ---- pastane: kiraz ağacından dökülen pembe yapraklar (cam ardında, sokağa süzülür)
+const PETAL_SETS = [[[248, 190, 208], [240, 168, 192], [252, 214, 226]], [[150, 110, 140], [132, 96, 128], [168, 128, 156]]].map(set => set.map(([r, g, b]) => {
+  const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32;
+  const x = cv.getContext('2d'); x.translate(16, 16);
+  x.beginPath(); x.moveTo(0, 13); x.bezierCurveTo(-11, 6, -9, -9, -2, -12); x.lineTo(0, -8); x.lineTo(2, -12); x.bezierCurveTo(9, -9, 11, 6, 0, 13);   // uçta çentik
+  const gr = x.createLinearGradient(0, 13, 0, -12);
+  gr.addColorStop(0, `rgb(${r - 30},${g - 40},${b - 30})`); gr.addColorStop(1, `rgb(${r},${g},${b})`);
+  x.fillStyle = gr; x.fill();
+  return cv;
+}));
+const petals = [];
+function stepPetals(dt, e, wind, night) {
+  const [tx0, ty0, tx1, ty1] = SC.pastry.tree, [fl0, fl1] = SC.pastry.street;
+  if (petals.length < 36 && Math.random() < dt * (3.5 + e * 4 + (levels.beat ? 5 : 0) + wind * 6)) {
+    const z = rnd(.3, 1);
+    petals.push({ x: rnd(tx0, tx1), y: rnd(ty0, ty1), z, s: 2.2 + z * 4.5, r: rnd(0, 6.28), vr: rnd(-3, 3), ph: rnd(0, 6.28), c: Math.floor(rnd(0, 3)), t: 0, floor: rnd(fl0, fl1) });
+  }
+  const set = PETAL_SETS[night > .5 ? 1 : 0];
+  fx.save(); clipGlass(fx); fx.globalCompositeOperation = 'source-over';
+  for (let i = petals.length - 1; i >= 0; i--) {
+    const P = petals[i]; P.t += dt;
+    P.x += (Math.sin(T * 1.1 + P.ph) * 16 * P.z + wind * 70 + 5) * dt;
+    P.y += (12 + P.z * 16 + levels.bass * 10) * dt;
+    P.r += (P.vr + Math.sin(T * 1.7 + P.ph) * 2) * dt;
+    const out = clamp((P.floor - P.y) / 30, 0, 1);
+    if (out <= 0 || P.x > 1460) { petals.splice(i, 1); continue; }
+    const flip = Math.cos(T * 2.6 + P.ph);   // dönerken ince görünür
+    fx.globalAlpha = clamp(Math.min(1, P.t / .6) * out * (.6 + P.z * .4), 0, 1);
+    fx.save(); fx.translate(P.x, P.y); fx.rotate(P.r); fx.scale(.4 + .6 * Math.abs(flip), 1);
+    fx.drawImage(set[P.c], -P.s, -P.s, P.s * 2, P.s * 2); fx.restore();
+  }
+  fx.restore(); fx.globalAlpha = 1;
+}
+// ---- pastane: sokaktaki ip ışıklar müzikle soldan sağa dalgalanarak parlar (yalnızca akşam görselinde yanıyorlar)
+function drawBulbs(dt, c, wind) {
+  const B = SC.pastry.bulbs, fog = c.fog || 0;
+  glowS += (levels.kick - glowS) * (levels.kick > glowS ? Math.min(1, dt * 20) : Math.min(1, dt * 3));
+  fx.save(); clipGlass(fx); fx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < B.length; i++) {
+    const [bx, by] = B[i];
+    const wave = .5 + .5 * Math.sin(T * 2.2 - bx * .03);           // yavaş akan ışık dalgası
+    const tw = .85 + .15 * Math.sin(T * 13 + i * 2.7);              // hafif ampul kıpırtısı
+    const k = (.18 + wave * .22 + glowS * .7 + levels.high * .25) * tw;
+    const x = bx + Math.sin(T * 1.4 + bx * .02) * wind * 2.5, y = by + Math.sin(T * 1.1 + bx * .02) * wind * 1.5;
+    const s = (6 + glowS * 7) * (1 + fog * 1.2);                    // siste hâle büyür, sönükleşir
+    fx.globalAlpha = clamp(k * (1 - fog * .45), 0, .9);
+    fx.drawImage(GLOW, x - s, y - s, s * 2, s * 2);
+    fx.globalAlpha = clamp(k * .9 * (1 - fog * .6), 0, .9);
+    fx.drawImage(GLOW, x - 2, y - 2, 4, 4);
+  }
+  fx.restore(); fx.globalAlpha = 1;
+}
+
 const candleDip = { t: -1, wait: 4, len: 1, depth: .5 };
 const candleSparks = [];
 // buğu katmanı: camın yarı çözünürlüğü (545x216), yumuşak ölçeklenir
@@ -2536,11 +2613,13 @@ function vizLabel(id) {
     case 'sky': return n ? (overcast(c) ? (SC.city ? 'Şehir ışıkları' : 'Bulutlu gece') : 'Kayan yıldız') : (overcast(c) || dim ? 'Bulutlar' : 'Bulut gölgesi');
     case 'wings': if (SC.sea && !SC.sea.pond) return !seaPathOK(c) ? 'Camda damlalar' : n ? 'Ay yolu' : 'Güneş yolu';
       if (SC.leafFall) return n ? (badSky(c) ? 'Işık damlaları' : 'Havuzda ay') : 'Akçaağaç yaprakları';
+      if (SC.pastry) return n && badSky(c) ? 'Camda ışıklar' : 'Kiraz yaprakları';
       return !n ? 'Sabun köpüğü' : badSky(c) ? 'Camda ışıklar' : 'Uçan fenerler';
     case 'mirror': return overcast(c) ? 'Cam yansıması' : n ? 'Ay ışığı' : 'Cam parıltısı';
     case 'leaves': return dim ? 'Mum ışığı' : 'Yaprak ışığı';
     case 'prism': return dim ? ((SC.fire && SC.fire.name) || 'Şömine') : 'Gökkuşağı';
     case 'rays': return dim ? 'Lamba huzmesi' : 'Güneş huzmesi';
+    case 'pulse': return SC.pastry && nightNow(c) ? 'İp ışıkları' : 'Işık nabzı';
   }
   return VIZ_NAMES[id];
 }
@@ -2703,7 +2782,8 @@ const VIZ_DRAW = {
     }
   },
   // Işık nabzı: odanın kendi ışığı müzikle atar (gündüz güneş lekeleri, gece lamba)
-  pulse(dt, c, night) {
+  pulse(dt, c, night, wind) {
+    if (SC.pastry && nightNow(c)) { drawBulbs(dt, c, wind || 0); return; }   // pastane akşamı: ip ışıklar
     // her vuruşta oda ışığı parlar, sonra yavaşça söner
     const target = levels.kick;
     glowS += (target - glowS) * (target > glowS ? Math.min(1, dt * 22) : Math.min(1, dt * 2.6));
@@ -2777,6 +2857,10 @@ const VIZ_DRAW = {
     }
     if (SC.leafFall && night > .5 && !badSky(c)) return;   // Japon bahçesi açık gece: havuzda ay (shader); fener uçmaz
     const e = levels.energy;
+    if (SC.pastry) {   // pastane: gece kötü havada camdaki ışıklar, diğer her durumda kiraz yaprakları
+      if (night > .5 && badSky(c)) { drawGlassLights(dt); return; }
+      stepPetals(dt, e, wind, night); fx.globalCompositeOperation = 'lighter'; return;
+    }
     if (night > .5 && badSky(c)) { drawGlassLights(dt); return; }   // fener uçmaz: camdaki damlalar ışığı yakalar
     if (night > .5) {
       // pencerenin ardında süzülerek yükselen kâğıt fenerler
