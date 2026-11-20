@@ -496,6 +496,30 @@ const SCENES = {
     focus: [680, 600], cine: [0, 0, 1600, 900], waveY: 800,
     spots: [[480, 580, 950, 690, .45], [270, 560, 1640, 600, .4], [400, 700, 1400, 880, .9], [0, 600, 400, 948, .4], [1350, 700, 1659, 948, .4]],
     secret: []
+    },
+  bookshop: {
+    city: true,
+    name: 'Kitapçı', files: ['scene7.webp', 'maps7.png', 'disc7.webp', 'sheen7.png', 'arm7.png'],
+    rec: { cx: 807.5, cy: 672, rx: 204.5, ry: 40.5, labelR: 70 },
+    arm: { pivotX: 1039, pivotY: 622, ke: 0.33, startDeg: 13.5, endDeg: 42.5, x: 1022, y: 620, w: 74, h: 82 },
+    sheen: [600, 628, 416, 88], spindle: [807.5, 658],
+    panes: [[[488,30],[615,30],[615,216],[488,216]], [[623,30],[750,30],[750,216],[623,216]], [[758,30],[887,30],[887,216],[758,216]], [[896,30],[1008,30],[1008,216],[896,216]],
+            [[488,226],[615,226],[615,405],[488,405]], [[623,226],[750,226],[750,405],[623,405]], [[758,226],[887,226],[887,405],[758,405]], [[896,226],[1008,226],[1008,405],[896,405]],
+            [[488,414],[615,414],[615,590],[488,590]], [[623,414],[750,414],[750,590],[623,590]], [[758,414],[887,414],[887,590],[758,590]], [[896,414],[1008,414],[1008,590],[896,590]],
+            [[1057,40],[1272,40],[1272,143],[1057,143]], [[1065,202],[1260,202],[1260,588],[1065,588]]],
+    plant: [[340,0],[416,0],[536,640],[470,640]],
+    holes: [[[340,0],[416,0],[536,640],[470,640]]],   // ray merdiveni camın önünde
+    lamp1: [291, 380, .5], lamp2: [0, 0, 0], curtain: 0, dark: .3, lampK: .45,
+    variants: ['scene7m.webp', 'scene7d.webp', 'disc7m.webp', 'disc7d.webp', 'sheen7m.png', 'sheen7d.png', 'arm7d.png'],
+    windLeaf: 'rgba(160,110,50,.85)',   // rüzgârda sokaktan geçen kuru yapraklar
+    fxNames: { prism: ['Gökkuşağı', 'Lamba ışığı'] },
+    // yeşil banker lambası: elektrik ışığı, alev gibi titremez (steady); sabah ve öğle görselinde sönük
+    fire: { x: 291, y: 380, k: .7, rect: [270, 350, 45, 25], haze: 0, sparks: false, steady: true, name: 'Lamba ışığı', offAtNoon: true, offAtMorning: true, round: true, paper: [120, 340, 300, 50] },
+    lights: [[855, 298], [858, 380], [1092, 362], [1185, 357], [530, 350], [735, 385], [780, 437], [922, 358]],
+    fogRect: [488, 30, 784, 560], cup: [1390, 790, 190], cone: [1505, 650, 104, 107],
+    focus: [810, 660], cine: [0, 0, 1620, 900], waveY: 830,
+    spots: [[600, 630, 1020, 720, .45], [488, 560, 1272, 600, .4], [300, 720, 1500, 900, .9], [0, 600, 450, 948, .4], [1300, 650, 1659, 948, .4]],
+    secret: []
   }
 };
 let SC = SCENES.window;
@@ -2983,7 +3007,7 @@ function frame(now) {
   if (SC.fire) {
     const fT = .07 * Math.sin(T * 5.1) * Math.sin(T * 2.3 + 1) + .035 * Math.sin(T * 11.7 + .5) + .03 * Math.sin(T * .7) + (Math.random() - .5) * .05
       + (isPlaying ? levels.bass * .14 : 0);
-    fireF += (fT - fireF) * Math.min(1, fdt * 10);
+    fireF += (fT * (SC.fire.steady ? .15 : 1) - fireF) * Math.min(1, fdt * 10);   // elektrik lambası: yalnızca hafif kıpırtı
   }
   // esinti: perde salınımının şiddeti
   const kTarget = vizRun === 'breeze' ? (.45 + levels.energy * .7) * autoViz.fade : 0;
