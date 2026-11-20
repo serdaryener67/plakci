@@ -257,6 +257,42 @@
     padding:9px 16px;border-radius:999px;background:rgba(13,11,10,.55);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   #toast.on{opacity:1;transform:translate(-50%,0)}
   #nogl{display:none;position:fixed;inset:0;z-index:0;background:url(scene.webp) center/cover}
+
+  /* ---- Kapak akışı (Cover Flow): ikinci raf görünümü ---- */
+  #flow{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;opacity:0;pointer-events:none;
+    transition:opacity .35s ease;--fc:60,40,25}
+  #flow.on{opacity:1;pointer-events:auto}
+  #flowBg{position:absolute;inset:0;background:rgba(13,11,10,.95)}
+  #flowBg::after{content:"";position:absolute;inset:0;transition:background .6s ease;
+    background:radial-gradient(75% 62% at 50% 44%, rgba(var(--fc),.72), rgba(var(--fc),.22) 58%, rgba(var(--fc),0) 100%)}
+  #flowTop{position:relative;display:flex;justify-content:space-between;align-items:center;
+    padding:max(14px, env(safe-area-inset-top)) 16px 0}
+  #flowTop .chip{background:rgba(13,11,10,.28)}
+  #flowCount{font-size:11px;letter-spacing:2px;color:var(--muted)}
+  #flowStage{position:relative;flex:1;perspective:1100px;overflow:hidden;touch-action:none;cursor:grab}
+  #flowStage:active{cursor:grabbing}
+  .fcard{position:absolute;left:50%;top:50%;width:var(--cw);margin-left:calc(var(--cw) * -.5);margin-top:calc(var(--cw) * -.62);
+    border-radius:14px;overflow:hidden;background:rgba(30,24,20,.6);will-change:transform,opacity;
+    box-shadow:0 18px 40px rgba(0,0,0,.45);transform-origin:50% 50%}
+  .fcard canvas{position:static;width:var(--cw);height:var(--cw);display:block}
+  .fcard .fi{padding:9px 10px 11px;text-align:center;background:rgba(255,255,255,.1);
+    border-top:1px solid rgba(255,255,255,.12)}
+  .fcard .fa{font-size:calc(var(--cw) * .075);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .fcard .fb{font-size:calc(var(--cw) * .058);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .fcard.cur{box-shadow:0 18px 40px rgba(0,0,0,.45), 0 0 0 1.5px rgba(233,180,111,.75)}
+  #flowBar{position:relative;margin:0 auto max(16px, env(safe-area-inset-bottom));width:min(760px, calc(100vw - 24px));
+    display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  #flowBar .ic{width:40px;height:40px;flex-shrink:0}
+  #flowBar svg{width:20px;height:20px;fill:var(--ink);stroke:none}
+  #flowNow{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:5px 12px 5px 5px;border-radius:999px;
+    background:rgba(13,11,10,.35)}
+  #flowMini{position:static;width:34px;height:34px;border-radius:7px;flex-shrink:0}
+  #flowNowT{min-width:0;flex:1}
+  #flowNowT .a{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #flowNowT .b{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #flowProg{height:2px;border-radius:1px;background:rgba(255,255,255,.18);margin-top:4px;overflow:hidden}
+  #flowProg i{display:block;height:100%;width:0;background:var(--amber)}
 </style>
 </head>
 <body class="empty">
@@ -324,11 +360,29 @@
   <div class="sub" id="libInfo">0 parça</div>
   <div class="row">
     <input id="search" type="search" placeholder="Ara" autocomplete="off">
+    <button class="chip" id="toFlow">Kapaklar</button>
     <button class="chip" id="changeDir">Klasör</button>
   </div>
   <div id="list"></div>
 </section>
 
+
+<section id="flow" aria-label="Kapak akışı">
+  <div id="flowBg"></div>
+  <div id="flowTop">
+    <span id="flowCount"></span>
+    <button class="chip" id="flowClose">Kapat <b>✕</b></button>
+  </div>
+  <div id="flowStage"></div>
+  <div id="flowBar">
+    <button class="ic" id="flowPrev" aria-label="Önceki"><svg viewBox="0 0 24 24"><path d="M11 6v12L3 12zM20 6v12l-8-6z"/></svg></button>
+    <button class="ic" id="flowPlay" aria-label="Çal"><svg viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></svg></button>
+    <button class="ic" id="flowNext" aria-label="Sonraki"><svg viewBox="0 0 24 24"><path d="M13 6v12l8-6zM4 6v12l8-6z"/></svg></button>
+    <div id="flowNow"><canvas id="flowMini" width="68" height="68"></canvas>
+      <div id="flowNowT"><div class="a"></div><div class="b"></div><div id="flowProg"><i></i></div></div></div>
+    <button class="ic" id="flowList" aria-label="Klasik liste"><svg viewBox="0 0 24 24"><path d="M4 6h3v2.2H4zM9 6h11v2.2H9zM4 11h3v2.2H4zM9 11h11v2.2H9zM4 16h3v2.2H4zM9 16h11v2.2H9z"/></svg></button>
+  </div>
+</section>
 <section class="sheet" id="vizSheet" aria-label="Görseller">
   <div class="grab"></div>
   <h3>Görseller</h3>
@@ -1677,6 +1731,7 @@ async function loadTrack(idx, autoplay, startAt) {
   drawLabel(t, art);
   updateMediaSession(t, tags);
   markCurrent();
+  if (flowOpen) { flowUpdateNow(); flowGo(idx); }
   const row = $('list').querySelector(`.trk[data-i="${idx}"]`);
   if (row) { row.querySelector('.a').textContent = t.title || t.name; if (t.artist) row.querySelector('.b').textContent = t.artist; }
   updateNextUp();
@@ -3967,27 +4022,274 @@ function markCurrent() {
   const prev = $('list').querySelector('.trk.cur'); if (prev) prev.classList.remove('cur');
   const now = $('list').querySelector(`.trk[data-i="${cur}"]`); if (now) now.classList.add('cur');
 }
-$('list').addEventListener('click', async (e) => {
+$('list').addEventListener('click', (e) => {
   const b = e.target.closest('.trk'); if (!b) return;
-  const path = tracks[+b.dataset.i].path;
+  closeSheets(); playFrom(+b.dataset.i);
+});
+// listeden ya da kapak akışından seçilen parçayı plağa koyar
+async function playFrom(idx) {
+  const path = tracks[idx].path;
   if (needsAccess && !(await ensureAccess())) return;
   const i = tracks.findIndex(t => t.path === path); if (i < 0) return;
   pos = order.indexOf(i);
-  closeSheets();
   const was = wantPlay;
   const my = ++seq;
   if (was) { armMode = 'moving'; await vinylStop(); await liftTo(7, 160); if (my !== seq) return; }
   await loadTrack(i, false, 0);
   if (my === seq) startPlayback();
-});
+}
 let searchTimer;
 $('search').addEventListener('input', (e) => { clearTimeout(searchTimer); searchTimer = setTimeout(() => renderList(e.target.value), 140); });
+
+
+/* ===========================================================
+   KAPAK AKIŞI: kapaklar 3B olarak yan yana akar, ortadakine dokununca çalar
+   Performans: ekranda sabit 9 kart var, sadece transform değişir; kapaklar
+   görünür oldukça okunur, küçültülür ve sınırlı bir önbellekte tutulur.
+   =========================================================== */
+const FLOW_N = 9, FLOW_HALF = 4;
+const flowCards = [];
+let flowOpen = false, flowPos = 0, flowVel = 0, flowTarget = null, flowRaf = 0, flowLast = 0, flowDrag = null, flowCenter = -1;
+const thumbCache = new Map();   // path -> { bmp, col } ; en fazla 48 kapak
+let thumbBusy = false;
+const thumbQueue = [];
+
+// kapağı olmayan parça için adından üretilen plak etiketi
+function hashHue(str) { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return Math.abs(h) % 360; }
+function hslToRgb(h, s, l) {
+  const a = s * Math.min(l, 1 - l), f = (n) => { const k = (n + h / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+}
+function drawGenCover(cv, t) {
+  const x = cv.getContext('2d'), W = cv.width, hue = hashHue(t.path);
+  const g = x.createLinearGradient(0, 0, W, W);
+  g.addColorStop(0, `hsl(${hue},38%,30%)`); g.addColorStop(1, `hsl(${(hue + 40) % 360},42%,14%)`);
+  x.fillStyle = g; x.fillRect(0, 0, W, W);
+  // plak ve oluklar
+  x.fillStyle = '#121010'; x.beginPath(); x.arc(W * .5, W * .5, W * .4, 0, 6.283); x.fill();
+  x.strokeStyle = 'rgba(255,255,255,.05)'; x.lineWidth = Math.max(1, W / 220);
+  for (let r = W * .2; r < W * .39; r += W * .018) { x.beginPath(); x.arc(W * .5, W * .5, r, 0, 6.283); x.stroke(); }
+  x.fillStyle = `hsl(${hue},45%,62%)`; x.beginPath(); x.arc(W * .5, W * .5, W * .15, 0, 6.283); x.fill();
+  x.fillStyle = '#121010'; x.beginPath(); x.arc(W * .5, W * .5, W * .012, 0, 6.283); x.fill();
+  x.fillStyle = 'rgba(20,14,10,.85)'; x.font = `600 ${Math.round(W * .085)}px Roboto, system-ui, sans-serif`;
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(((t.title || t.name || '?').trim()[0] || '?').toLocaleUpperCase('tr'), W * .5, W * .44);
+  return hslToRgb(hue, .4, .3);
+}
+function drawCover(cv, t) {
+  const c = thumbCache.get(t.path);
+  if (c && c.bmp) {
+    const x = cv.getContext('2d'); x.drawImage(c.bmp, 0, 0, cv.width, cv.height); return c.col;
+  }
+  const col = drawGenCover(cv, t);
+  if (!c && !needsAccess) requestThumb(t);
+  return col;
+}
+function requestThumb(t) {
+  if (thumbCache.has(t.path) || thumbQueue.includes(t)) return;
+  thumbQueue.push(t); pumpThumbs();
+}
+// kapaklar sırayla okunur: aynı anda tek dosya, arayüz takılmaz
+async function pumpThumbs() {
+  if (thumbBusy) return;
+  thumbBusy = true;
+  while (thumbQueue.length) {
+    const t = thumbQueue.shift();
+    if (!flowOpen || needsAccess) break;
+    let entry = { bmp: null, col: null };
+    try {
+      const file = t.file || await t.handle.getFile();
+      const tags = await readTags(file);
+      // dosya içindeki etiket, dosya adından tahmin edilen addan önce gelir
+      if (tags.title) t.title = tags.title;
+      if (tags.artist) t.artist = tags.artist;
+      if (tags.title || tags.artist) saveLibCache();
+      if (tags.pic) {
+        const bmp = await createImageBitmap(tags.pic, { resizeWidth: 360, resizeHeight: 360, resizeQuality: 'medium' });
+        const s = document.createElement('canvas'); s.width = s.height = 1;
+        const sx = s.getContext('2d'); sx.drawImage(bmp, 0, 0, 1, 1);
+        const d = sx.getImageData(0, 0, 1, 1).data;
+        entry = { bmp, col: [d[0], d[1], d[2]] };
+      }
+    } catch (e) { /* okunamadı: üretilen kapak kalır */ }
+    thumbCache.set(t.path, entry);
+    // önbellek sınırı: en eski kapak bellekten silinir
+    if (thumbCache.size > 48) { const k = thumbCache.keys().next().value; const o = thumbCache.get(k); if (o.bmp) o.bmp.close(); thumbCache.delete(k); }
+    flowRefresh(true);
+  }
+  thumbBusy = false;
+}
+function buildFlow() {
+  if (flowCards.length) return;
+  const st = $('flowStage');
+  for (let k = 0; k < FLOW_N; k++) {
+    const el = document.createElement('div'); el.className = 'fcard';
+    el.innerHTML = '<canvas width="360" height="360"></canvas><div class="fi"><div class="fa"></div><div class="fb"></div></div>';
+    st.appendChild(el);
+    flowCards.push({ el, cv: el.querySelector('canvas'), a: el.querySelector('.fa'), b: el.querySelector('.fb'), idx: -2 });
+  }
+}
+function flowSize() {
+  const vw = innerWidth, vh = innerHeight;
+  const cw = Math.round(Math.min(vh * (vw > vh ? .44 : .36), vw * (vw > vh ? .3 : .56), 360));
+  $('flow').style.setProperty('--cw', cw + 'px');
+  return cw;
+}
+let flowCW = 240;
+// kartların yeri: ortadaki düz ve büyük, yandakiler 3B açıyla geriye yatar
+function flowLayout() {
+  const n = tracks.length; if (!n) return;
+  const base = Math.round(flowPos);
+  for (let k = 0; k < FLOW_N; k++) {
+    const C = flowCards[k], idx = base + k - FLOW_HALF;
+    if (idx < 0 || idx >= n) { C.el.style.visibility = 'hidden'; C.idx = -2; continue; }
+    C.el.style.visibility = 'visible';
+    if (C.idx !== idx) {
+      C.idx = idx; const t = tracks[idx];
+      C.col = drawCover(C.cv, t);
+      C.a.textContent = t.title || t.name;
+      C.b.textContent = t.artist || t.path.split('/').slice(-2, -1)[0] || '';
+      C.el.classList.toggle('cur', idx === cur);
+    }
+    const d = idx - flowPos, ad = Math.abs(d), sg = Math.sign(d);
+    const x = sg * (ad < 1 ? ad * flowCW * .62 : flowCW * .62 + (ad - 1) * flowCW * .3);
+    const ry = Math.max(-1, Math.min(1, d)) * 38;   // yandakiler iç kenarı öne gelecek şekilde merkeze döner
+    const sc = 1 - Math.min(ad, 3.5) * .1;
+    const z = -Math.min(ad, 1) * 120 - Math.max(0, ad - 1) * 40;
+    C.el.style.transform = `translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${ry.toFixed(1)}deg) scale(${sc.toFixed(3)})`;
+    C.el.style.zIndex = String(100 - Math.round(ad * 10));
+    C.el.style.opacity = String(Math.max(0, Math.min(1, 4.3 - ad)));
+  }
+  // ortadaki kapak değişince arka plan rengi ona uyar
+  const ci = Math.max(0, Math.min(n - 1, Math.round(flowPos)));
+  if (ci !== flowCenter) {
+    flowCenter = ci;
+    const C = flowCards.find(c => c.idx === ci);
+    if (C && C.col) $('flow').style.setProperty('--fc', C.col.join(','));
+    $('flowCount').textContent = (ci + 1) + ' / ' + n;
+  }
+}
+// önbelleğe yeni kapak gelince ekrandaki kartlar yeniden çizilir
+function flowRefresh(covers) {
+  if (!flowOpen) return;
+  if (covers) { flowCards.forEach(c => c.idx = -2); flowCenter = -1; if (tracks[cur]) drawCover($('flowMini'), tracks[cur]); }
+  flowLayout();
+}
+function flowTick(now) {
+  flowRaf = 0;
+  const dt = Math.min(.05, (now - (flowLast || now)) / 1000); flowLast = now;
+  if (!flowDrag) {
+    if (flowTarget != null) {
+      // hedef karta yumuşak yaylanma
+      flowPos += (flowTarget - flowPos) * Math.min(1, dt * 9);
+      if (Math.abs(flowTarget - flowPos) < .002) { flowPos = flowTarget; flowTarget = null; }
+    } else if (Math.abs(flowVel) > .02) {
+      flowPos += flowVel * dt; flowVel *= Math.pow(.04, dt);
+      flowPos = Math.max(0, Math.min(tracks.length - 1, flowPos));
+      if (Math.abs(flowVel) < 1.2) { flowTarget = Math.round(flowPos); flowVel = 0; }
+    } else if (flowPos !== Math.round(flowPos)) flowTarget = Math.round(flowPos);
+  }
+  flowLayout();
+  if (flowOpen && (flowDrag || flowTarget != null || Math.abs(flowVel) > .02)) flowRaf = requestAnimationFrame(flowTick);
+  else flowLast = 0;
+}
+function flowKick() { if (!flowRaf) flowRaf = requestAnimationFrame(flowTick); }
+function flowGo(i) { flowTarget = Math.max(0, Math.min(tracks.length - 1, i)); flowVel = 0; flowKick(); }
+
+function flowUpdateNow() {
+  const t = tracks[cur];
+  const nt = $('flowNowT');
+  nt.querySelector('.a').textContent = t ? (t.title || t.name) : '';
+  nt.querySelector('.b').textContent = t ? (t.artist || '') : '';
+  const mini = $('flowMini');
+  if (t) drawCover(mini, t); else mini.getContext('2d').clearRect(0, 0, 68, 68);
+  flowCards.forEach(c => c.el.classList.toggle('cur', c.idx === cur));
+  flowPlayIcon();
+}
+function flowPlayIcon() {
+  $('flowPlay').innerHTML = wantPlay
+    ? '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M7 5v14l12-7z"/></svg>';
+}
+function openFlow() {
+  if (!tracks.length) { openSheet('libSheet'); return; }
+  buildFlow(); flowCW = flowSize();
+  flowOpen = true;
+  flowPos = Math.max(0, cur); flowTarget = null; flowVel = 0; flowCenter = -1;
+  flowCards.forEach(c => c.idx = -2);
+  flowLayout(); flowUpdateNow();
+  $('flow').classList.add('on');
+}
+function closeFlow() {
+  flowOpen = false; $('flow').classList.remove('on');
+  thumbQueue.length = 0;
+}
+// sürükleme: parmağın hızı bırakınca kayma olarak devam eder
+$('flowStage').addEventListener('pointerdown', (e) => {
+  if (!tracks.length) return;
+  $('flowStage').setPointerCapture(e.pointerId);
+  flowDrag = { x: e.clientX, x0: e.clientX, p: flowPos, t: performance.now(), v: 0, moved: false };
+  flowTarget = null; flowVel = 0; flowKick();
+});
+$('flowStage').addEventListener('pointermove', (e) => {
+  if (!flowDrag) return;
+  const now = performance.now(), dx = e.clientX - flowDrag.x;
+  if (Math.abs(e.clientX - flowDrag.x0) > 6) flowDrag.moved = true;
+  const step = flowCW * .55;
+  flowPos = Math.max(-.3, Math.min(tracks.length - .7, flowPos - dx / step));
+  const dtm = Math.max(1, now - flowDrag.t);
+  flowDrag.v = flowDrag.v * .6 + (-dx / step) / (dtm / 1000) * .4;
+  flowDrag.x = e.clientX; flowDrag.t = now;
+});
+function flowUp(e) {
+  if (!flowDrag) return;
+  const D = flowDrag; flowDrag = null;
+  if (!D.moved) {
+    // dokunuş: ortadaki karta ise çalar, yandakine ise ona kayar
+    // pointer capture yüzünden hedef sahne olur: dokunulan kart konumdan bulunur
+    const under = document.elementFromPoint(e.clientX, e.clientY), hit = under && under.closest('.fcard');
+    const C = hit && flowCards.find(c => c.el === hit);
+    if (C && C.idx >= 0) {
+      if (C.idx === Math.round(flowPos)) { flowGo(C.idx); if (C.idx !== cur || !wantPlay) playFrom(C.idx); else togglePlay(); }
+      else flowGo(C.idx);
+    } else flowGo(Math.round(flowPos));
+    return;
+  }
+  flowVel = Math.max(-40, Math.min(40, D.v));
+  if (Math.abs(flowVel) < 1.2) { flowVel = 0; flowTarget = Math.round(flowPos); }
+  flowKick();
+}
+$('flowStage').addEventListener('pointerup', flowUp);
+$('flowStage').addEventListener('pointercancel', flowUp);
+// fare tekerleği: bir çentik bir kapak
+let flowWheelT = 0;
+$('flowStage').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const now = performance.now(); if (now - flowWheelT < 90) return; flowWheelT = now;
+  const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  flowGo(Math.round(flowTarget != null ? flowTarget : flowPos) + (d > 0 ? 1 : -1));
+}, { passive: false });
+$('flowClose').onclick = closeFlow;
+$('flowList').onclick = () => { closeFlow(); store.set('libView', 'list'); openSheet('libSheet'); };
+$('toFlow').onclick = () => { closeSheets(); store.set('libView', 'flow'); openFlow(); };
+$('flowPrev').onclick = () => go(-1);
+$('flowNext').onclick = () => go(1);
+$('flowPlay').onclick = () => { togglePlay(); setTimeout(flowPlayIcon, 60); };
+audio.addEventListener('play', () => { if (flowOpen) flowPlayIcon(); });
+audio.addEventListener('pause', () => { if (flowOpen) flowPlayIcon(); });
+// ilerleme çubuğu: timeupdate ile (saniyede ~4 kez), her karede değil
+audio.addEventListener('timeupdate', () => {
+  if (!flowOpen || !isFinite(audio.duration) || audio.duration <= 0) return;
+  $('flowProg').firstChild.style.transform = '';
+  $('flowProg').firstChild.style.width = (audio.currentTime / audio.duration * 100).toFixed(1) + '%';
+});
+addEventListener('resize', () => { if (flowOpen) { flowCW = flowSize(); flowLayout(); } });
 
 $('play').onclick = togglePlay;
 $('stop').onclick = () => stopPlayback(true);
 $('next').onclick = () => go(1);
 $('prev').onclick = () => go(-1);
-$('libBtn').onclick = () => openSheet('libSheet');
+$('libBtn').onclick = () => { if (store.get('libView', 'flow') === 'flow' && tracks.length) openFlow(); else openSheet('libSheet'); };
 $('pickBtn').onclick = pickFolder;
 $('changeDir').onclick = () => { closeSheets(); pickFolder(); };
 $('atmoBtn').onclick = () => { updateAtmoUI(); openSheet('atmoSheet'); };
@@ -4134,7 +4436,12 @@ function stepCam(dt) {
   });
 })();
 addEventListener('keydown', (e) => {
-  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (flowOpen) {
+    if (e.code === 'Escape') { closeFlow(); return; }
+    if (e.code === 'ArrowRight' || e.code === 'ArrowLeft') { flowGo(Math.round(flowTarget != null ? flowTarget : flowPos) + (e.code === 'ArrowRight' ? 1 : -1)); return; }
+    if (e.code === 'Enter') { const i = Math.round(flowPos); if (i !== cur) playFrom(i); else togglePlay(); return; }
+  }
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); if (flowOpen) setTimeout(flowPlayIcon, 60); }
   if (e.code === 'ArrowRight') go(1);
   if (e.code === 'ArrowLeft') go(-1);
   if (e.code === 'ArrowUp') { e.preventDefault(); setVolume(volume + 5); }
